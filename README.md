@@ -27,8 +27,7 @@ Open **Anaconda Prompt** in the project folder (for example `C:\kasafi-bot`).
 ```bat
 conda create -n kasafi python=3.11 -y
 conda activate kasafi
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-conda install -c conda-forge ffmpeg -y
+pip install "torch>=2.6" --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements.txt
 copy .env.example .env
 notepad .env

@@ -4,6 +4,7 @@ accelerate>=0.33
 bitsandbytes>=0.43.2      # 4-bit N-ATLaS on an 8 GB GPU (Windows supported from 0.43)
 sentencepiece
 numpy
+imageio-ffmpeg            # bundled ffmpeg for voice notes (avoids conda DLL conflicts on Windows)
 python-telegram-bot==21.6
 fastapi==0.115.0
 uvicorn==0.30.6

@@ -28,7 +28,11 @@ Wrapping any other foundation model means disqualification.
   `pip install -r requirements.txt`, which pins transformers 4.x for bitsandbytes 4-bit on Windows.
 - `huggingface_hub` 2.x removed `huggingface-cli`; use `hf auth login` / `hf download`. In hf-env the user
   had to downgrade to `huggingface_hub>=1.5,<2.0`. Model files live in the shared HF cache, so any env can use them.
-- ffmpeg is required for voice notes: `conda install -c conda-forge ffmpeg`.
+- ffmpeg is required for voice notes. It comes from the `imageio-ffmpeg` pip package (in requirements.txt).
+  Do not rely on conda-forge ffmpeg in the kasafi env: it crashes with 0xC0000139 because the env mixes
+  defaults and conda-forge DLLs.
+- torch must be >= 2.6 (`--index-url https://download.pytorch.org/whl/cu124`): Hausa-ASR ships
+  `pytorch_model.bin`, which transformers 4.57 refuses to load on older torch (CVE-2025-32434).
 
 ## Architecture (see docs/TECHNICAL.md)
 voice/text → `app/asr.py` (Hausa-ASR) → `app/llm.py` N-ATLaS `understand()` (Hausa→English + topic JSON) →

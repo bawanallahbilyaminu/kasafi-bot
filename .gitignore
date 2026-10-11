@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 data/db/interactions.sqlite
 evidence/
+
+# local voice recordings (user data)
+test-voice.ogg

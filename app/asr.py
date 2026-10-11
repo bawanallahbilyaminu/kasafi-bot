@@ -17,11 +17,21 @@ from . import config
 log = logging.getLogger("natlas.asr")
 
 
+def _ffmpeg_exe():
+    # Prefer the self-contained imageio-ffmpeg binary: conda-forge ffmpeg can fail on Windows
+    # (0xC0000139) when the env mixes defaults and conda-forge runtime DLLs.
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return shutil.which("ffmpeg")
+
+
 def decode_audio(data: bytes, suffix=".ogg"):
     """Return float32 mono 16 kHz samples from any audio container ffmpeg understands."""
-    ffmpeg = shutil.which("ffmpeg")
+    ffmpeg = _ffmpeg_exe()
     if not ffmpeg:
-        raise RuntimeError("ffmpeg not found. Install it: conda install -c conda-forge ffmpeg")
+        raise RuntimeError("ffmpeg not found. Install it: pip install imageio-ffmpeg")
     with tempfile.TemporaryDirectory() as d:
         src = Path(d) / f"in{suffix}"
         src.write_bytes(data)

@@ -7,6 +7,7 @@
 """
 import argparse
 import os
+import sys
 from pathlib import Path
 
 
@@ -16,6 +17,7 @@ def main():
     ap.add_argument("--audio")
     ap.add_argument("--no-models", action="store_true")
     a = ap.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8")  # the Windows console (cp1252) cannot print the naira sign
     if a.no_models:
         os.environ["LLM_BACKEND"] = "none"
         os.environ["ASR_ENABLED"] = "0"
