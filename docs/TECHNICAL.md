@@ -192,6 +192,12 @@ no budget figures for out-of-scope questions.
 | Held-out set 1 (written after the fixes) | 67 | 61/67 (91%) on first run; 67/67 after its fixes |
 | Held-out set 2 (written after that) | 32 | 28/32 (88%) on first run; 32/32 after its fixes |
 
+**With N-ATLaS (Colab L4, 60 questions spread over all categories):** 56/60 passed (93%); N-ATLaS wrote 46 of the
+53 budget answers (87%), the rest fell back to verified figures after a check; median 4.8 s per question
+(`bench/report_llm_sample60_before.md`). Its two wrong-but-accepted answers (a different real figure for Fadama;
+IGR read as the Internal Revenue Board's budget) led to the "must state the requested figure" check and the
+revenue routing fix, both now covered by replay tests in `tests/test_questions.py`.
+
 The first-run held-out scores (88–91%) are the honest estimate for unseen questions with the rules alone; in the
 live system N-ATLaS's translation and topic hints are added before routing. `python bench/run_benchmark.py --llm`
 measures the full system (N-ATLaS answer rate, why checks replaced drafts, time per question).

@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 
 from . import config
-from .answer import HELP_EN, HELP_HA, OUT_OF_SCOPE_EN, OUT_OF_SCOPE_HA, citation, facts_block, focus, grounded, items_block, notes_block, template_answer
+from .answer import HELP_EN, HELP_HA, OUT_OF_SCOPE_EN, OUT_OF_SCOPE_HA, required_facts, citation, facts_block, focus, grounded, items_block, notes_block, template_answer
 from .logstore import LogStore, user_hash
 from .nlu import Understanding
 from .onboarding import Onboarding
@@ -98,9 +98,12 @@ class Engine:
             p.performance = True
         if und.get("wants") == "comparison":
             p.compare = True
-        if und.get("wants") == "project_status" and p.intent not in ("project_status", "greeting"):
+        plain_lga = p.intent in ("lga", "project") and not p.analysis   # "what projects are in Wamakko?" stays a list
+        if und.get("wants") == "project_status" and p.intent not in ("project_status", "greeting", "out_of_scope") \
+                and not plain_lga:
             p.intent = p.analysis = "project_status"
-        if und.get("wants") == "ranking" and p.intent not in ("ranking", "greeting", "project_status"):
+        if und.get("wants") == "ranking" and p.intent not in ("ranking", "greeting", "project_status", "out_of_scope") \
+                and not plain_lga:
             p.intent = p.analysis = "ranking"
             p.rank_order = p.rank_order or "top"
             p.rank_metric = p.rank_metric or ("implementation" if p.performance else "allocation")
@@ -136,7 +139,7 @@ class Engine:
             self._progress(progress, "write")
             try:
                 draft = self.llm.write(text, facts, lang)
-                ok, bad = grounded(draft, llm_ret, lang)
+                ok, bad = grounded(draft, llm_ret, lang, required=required_facts(p, text))
                 if ok and draft:
                     answer, source = draft, "natlas"
                     # keep the full figures list under the prose so citizens can check them

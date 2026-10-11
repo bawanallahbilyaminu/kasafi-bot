@@ -20,6 +20,7 @@ A question passes when every check that applies to it passes:
 import argparse
 import json
 import os
+import re
 import statistics
 import sys
 import time
@@ -95,7 +96,9 @@ def main():
         if q.get("func"):
             checks["entity"] = q["func"] in (ent.get("function") or [])
         if q.get("figures"):
-            checks["figure"] = any(f in ans for f in q["figures"])
+            checks["figure"] = any(f in ans for f in q["figures"]) or any(
+                re.search(r"(?<![\d.])" + re.escape(re.sub(r"[^\d.]", "", f).strip(".")) + r"(?![\d.])", ans)
+                for f in q["figures"] if ("%" in f or "cikin 100" in f))
         if q.get("texts"):
             checks["text"] = any(t.lower()[:30] in ans.lower() for t in q["texts"])
         if q.get("wants_items"):

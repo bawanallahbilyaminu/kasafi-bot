@@ -145,6 +145,38 @@ def claim_checks():
     return fails
 
 
+def natlas_replay_checks():
+    """Replays answers the real N-ATLaS gave in the Colab benchmark run (bench/results_llm.jsonl)."""
+    class Fake:
+        enabled, model_id = True, "fake"
+        def __init__(self, und, draft): self.und, self.draft = und, draft
+        def understand(self, text): return self.und
+        def write(self, q, facts, lang): return self.draft
+    e = Engine(load_models=False)
+    fails = 0
+    cases = [  # question, N-ATLaS understanding, N-ATLaS draft, must contain, must be written by N-ATLaS?
+        ("How much did Fadama get in 2026?", {"english": "How much did Fadama get in 2026?", "wants": "allocation", "year": 2026},
+         "The Fadama Programme received ₦800 thousand in 2026.", "₦2.6", False),
+        ("How much did Hisbah get in 2026?", {"english": "How much did Hisbah get in 2026?", "wants": "allocation", "year": 2026},
+         "The Hisbah Board received ₦889.67 million in 2026.", "₦889.67", True),
+        ("Kashi nawa aka aiwatar na kasafin lafiya a 2025?", {"english": "What percentage of the health budget was implemented in 2025?",
+         "topic": "health", "wants": "spending", "year": 2025}, "An aiwatar da kashi 41.8 na kasafin lafiya a 2025.", "41.8", True),
+        ("Nawa ne kudaden shiga na cikin gida (IGR) a 2026?", {"english": "How much is the internally generated revenue (IGR) in 2026?",
+         "topic": "internal revenue", "wants": "revenue", "year": 2026}, "Kudaden shiga na cikin gida (IGR) a 2026 ya kai ₦180 miliyan.",
+         "Kudaden shigar jiha", False),
+        ("Wadanne ayyuka ne za a yi a Wamakko?", {"english": "What projects will be carried out in Wamakko?", "topic": "Wamakko",
+         "wants": "project_status"}, "", "Karamar Hukumar Wamakko", False),
+    ]
+    for q, und, draft, must, natlas in cases:
+        e.llm = Fake(und, draft)
+        r = e.handle_text("test", "t", q)
+        src = (e.logs.admin_get(r.interaction_id) or {}).get("answer_source")
+        if must not in r.text or (natlas and src != "natlas") or (not natlas and src == "natlas"):
+            print(f"FAIL replay: {q} -> source {src}\n{r.text[:200]}"); fails += 1
+    print(f"N-ATLaS replay: {len(cases) - fails}/{len(cases)} passed")
+    return fails
+
+
 def onboarding_checks():
     import tempfile
     from app.logstore import LogStore
@@ -177,7 +209,7 @@ def onboarding_checks():
 
 
 def main():
-    speech_fails = speech_checks() + year_checks() + onboarding_checks() + claim_checks()
+    speech_fails = speech_checks() + year_checks() + onboarding_checks() + claim_checks() + natlas_replay_checks()
     e = Engine(load_models=False)
     fails = 0
     for q, want in CASES:

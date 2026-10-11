@@ -384,6 +384,8 @@ class Understanding:
                 p.measure = m
                 break
         p.mda_codes = self.match_mdas(both)
+        if p.measure == "revenue" and p.mda_codes and not self.match_mdas(t):
+            p.mda_codes = []   # "kudaden shiga na cikin gida" -> N-ATLaS 'internal revenue' -> not the Board of Internal Revenue
         p.lga_codes = self.match_lgas(both)
         p.function_codes = self.match_functions(both)
         terms = []

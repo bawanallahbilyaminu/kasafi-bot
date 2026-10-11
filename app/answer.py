@@ -197,7 +197,7 @@ def allowed_numbers(ret, lang):
     return allowed
 
 
-SPEND_WORDS = re.compile(r"\b(kashe|kashewa|spent|spending|expended|received)\b", re.I)
+SPEND_WORDS = re.compile(r"\b(kashe|kashewa|spent|spending|expended)\b", re.I)
 NOT_SPENT = re.compile(r"ba (a|tare da an) kashe|not spent|without (any )?spending|nothing (was )?spent|unspent|no money spent", re.I)
 ALLOC_WORDS = re.compile(r"\b(ware|warewa|allocated|allocation|budgeted|approved|kasafin|budget)\b", re.I)
 MONEY = re.compile(r"₦\s?(\d[\d,]*(?:\.\d+)?)")
@@ -321,7 +321,54 @@ def claims_ok(draft, ret):
     return capital_ok(draft, ret)
 
 
-def grounded(draft, ret, lang):
+RATE_Q = re.compile(r"kashi nawa|percent|percentage|\brate\b|implement|aiwatar|kaso", re.I)
+SPEND_Q = re.compile(r"\b(kashe|kashewa|spent|spend|spending|used|released|actual|expended|samu)\b", re.I)
+SO_FAR_Q = re.compile(r"zuwa yanzu|so far|to date|har yanzu|this year", re.I)
+
+
+def required_facts(p, question):
+    """Which figure the question asks for (fact keys, any of them). N-ATLaS's answer must state one of them."""
+    if p.intent not in ("mda", "function") or p.compare:
+        return []
+    m = p.measure if p.measure in ("personnel", "overhead", "capital", "debt_service") else "total"
+    ys = set(p.years or [])
+    q = question or ""
+    if RATE_Q.search(q):
+        return [f"{m}_pct2026"] if (2026 in ys and 2025 not in ys) or SO_FAR_Q.search(q) else [f"{m}_pct2025"]
+    if SPEND_Q.search(q) or p.performance:
+        if 2023 in ys:
+            return [f"{m}_2023"]
+        if 2024 in ys:
+            return [f"{m}_spent2024"]
+        if 2026 in ys and 2025 not in ys or SO_FAR_Q.search(q):
+            return [f"{m}_spent2026"]
+        return [f"{m}_spent2025"]
+    if ys == {2025}:
+        return [f"{m}_final2025", f"{m}_orig2025", f"{m}_rev2025", "func_rev2025"]
+    if not ys or 2026 in ys:
+        return [f"{m}_2026", "func_2026"]
+    return []
+
+
+def required_ok(draft, ret, keys, lang):
+    """The draft must contain the figure that was asked for (live failure: 'How much did Fadama get in 2026?' was
+    answered with a different real figure, ₦800 thousand, instead of the ₦2.6bn allocation)."""
+    facts = [f for f in ret.facts if f.key in keys]
+    if not facts:
+        return True, None
+    have = {_n(n) for n in NUM_IN_TEXT.findall(draft or "")}
+    for f in facts:
+        nums = {_n(n) for l in ("ha", "en") for n in NUM_IN_TEXT.findall(f.text(l).split(":")[-1])}
+        if nums & have:
+            return True, None
+    return False, f"draft does not state the requested figure ({facts[0].text(lang)})"
+
+
+def grounded(draft, ret, lang, required=None):
+    if required:
+        ok, why = required_ok(draft, ret, required, lang)
+        if not ok:
+            return False, why
     if (ret.facts or ret.items) and NO_INFO.search(draft or ""):
         return False, "N-ATLaS said there was no information, but figures were found"
     allowed = allowed_numbers(ret, lang) | {str(i) for i in range(0, 11)} | {"100"}
