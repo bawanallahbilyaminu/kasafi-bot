@@ -13,6 +13,8 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, Con
 from . import config
 from .answer import HELP_EN, HELP_HA
 from .engine import Engine
+from .logstore import user_hash
+from .onboarding import DONE  # noqa: F401  (re-exported for tests)
 
 logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -22,9 +24,13 @@ ENGINE: Engine = None
 EXAMPLES = ["Nawa aka ware wa lafiya a 2026?", "Nawa aka kashe a fannin ilimi a 2025?",
             "Wadanne ayyuka ne za a yi a Tambuwal?", "Nawa ne kudaden shigar jiha?"]
 ABOUT = ("ℹ️ *Kasafi Bot* — Halal Numeriq Limited, Sokoto.\n"
-         "Bayanai daga: Kasafin Kudin Jihar Sokoto na 2026 (wanda aka amince), wanda ya kunshi abin da aka kashe a 2025.\n"
+         "Bayanai daga: Kasafin Kudin Jihar Sokoto na 2026 da na 2025 (wadanda aka amince), da rahotannin aiwatar da "
+         "kasafi na kowane wata uku (2025–2026).\n"
          "Fasaha: N-ATLaS (harshe) da Hausa-ASR (murya).\n\n_" + config.ATTRIBUTION + "_\n\n"
-         "Ba mu adana lambar wayarku ko sunanku; muna adana tambaya da amsa kawai domin inganta sabis.")
+         "Muna adana sunanka, kungiyarka, tambayoyinka da amsoshi domin inganta sabis. Ba mu adana lambar wayarka. "
+         "Aiko /canza don sabunta sunanka ko kungiyarka.")
+ORG_CHOICES = ["Ma'aikatar Kasafi (MBEP)", "Abokin ci gaba (Development partner)", "Kungiyar farar hula (CSO)",
+               "Dalibi (Student)", "Babu (None)"]
 
 
 def feedback_kb(iid):
@@ -167,7 +173,120 @@ async def keep_action(chat, action, stop: asyncio.Event):
             pass
 
 
+# ------------------------------------------------------------------ registration (name + organisation)
+def name_kb(user):
+    full = " ".join(x for x in (user.first_name, user.last_name) if x)
+    return InlineKeyboardMarkup([[InlineKeyboardButton(f"✅ {full}", callback_data="nm")]]) if full else None
+
+
+def org_kb():
+    return InlineKeyboardMarkup([[InlineKeyboardButton(o, callback_data=f"org:{i}")] for i, o in enumerate(ORG_CHOICES)])
+
+
+async def reply_md(msg, text, kb=None):
+    try:
+        return await msg.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=kb)
+    except Exception:  # noqa: BLE001
+        return await msg.reply_text(text.replace("*", "").replace("_", ""), reply_markup=kb)
+
+
+async def registered(update: Update, context: ContextTypes.DEFAULT_TYPE, text=None, voice=None):
+    """True when the user can be answered. Otherwise runs one registration step and returns False.
+    A question sent before registering (text or voice) is kept and answered when registration finishes."""
+    if not config.REQUIRE_REGISTRATION:
+        return True
+    uh = user_hash("telegram", update.effective_user.id)
+    if ENGINE.onboarding.profile(uh):
+        return True
+    pending = None
+    if voice:
+        context.user_data["pending_voice"] = voice
+        pending = "voice"
+    step = ENGINE.onboarding.step(uh, "telegram", text, pending=pending)
+    msg = update.effective_message
+    if not step.done:
+        kb = name_kb(update.effective_user) if step.stage == "name" else org_kb()
+        await reply_md(msg, step.reply, kb)
+        return False
+    await reply_md(msg, step.reply, None if step.pending else examples_kb())
+    if step.pending == "voice":
+        v = context.user_data.pop("pending_voice", None)
+        if v:
+            await answer_voice(update, context, *v)
+        else:
+            await msg.reply_text("Don Allah sake aiko da sakon muryarka.")
+    elif step.pending:
+        await answer_text(update, context, step.pending)
+    return False
+
+
+async def canza(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/canza: update name and organisation."""
+    ENGINE.onboarding.restart(user_hash("telegram", update.effective_user.id), "telegram")
+    await registered(update, context)
+
+
+# ------------------------------------------------------------------ admin (ids in ADMIN_TELEGRAM_IDS)
+async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_message.reply_text(f"Your Telegram id: {update.effective_user.id}")
+
+
+def is_admin(update):
+    return update.effective_user.id in config.ADMIN_TELEGRAM_IDS
+
+
+async def send_long(msg, text):
+    for i in range(0, len(text), 3900):
+        await msg.reply_text(text[i:i + 3900])
+
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    s = ENGINE.logs.stats()
+    n = s["interactions"] or 1
+    orgs = "\n".join(f"  • {o}: {c}" for o, c in s["orgs"]) or "  —"
+    await update.effective_message.reply_text(
+        f"📊 Kasafi Bot\n"
+        f"Interactions: {s['interactions']} (today {s['today']})  — target 50\n"
+        f"Voice notes: {s['voice']} ({100 * s['voice'] // n}%)\n"
+        f"Written by N-ATLaS: {s['natlas']} · template fallback: {s['template']}\n"
+        f"Feedback: 👍 {s['thumbs_up']} · 👎 {s['thumbs_down']}\n"
+        f"Registered users: {s['users']} (+{s['registering']} registering)\n"
+        f"Organisations:\n{orgs}")
+
+
+def fmt_rows(rows):
+    out = []
+    for (iid, ts, ch, typ, name, org, q, intent, src, gfail, fb, ans, err) in rows:
+        mark = {1: " 👍", -1: " 👎"}.get(fb, "")
+        a = (ans or "").split("📄")[0].strip().replace("\n", " ")
+        out.append(f"#{iid} {ts[5:16].replace('T', ' ')} UTC · {ch} {'🎙️' if typ == 'voice' else '⌨️'} · {name} ({org}){mark}\n"
+                   f"Q: {q or '—'}\n"
+                   f"A [{src or '—'}{', ' + intent if intent else ''}]: {a[:220]}"
+                   + (f"\n⚠️ {gfail}" if gfail else "") + (f"\n❌ {err}" if err else ""))
+    return "\n\n".join(out) or "No interactions yet."
+
+
+async def recent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/recent [n]: latest questions and answers, with who asked."""
+    if not is_admin(update):
+        return
+    n = int(context.args[0]) if context.args and context.args[0].isdigit() else 10
+    await send_long(update.effective_message, fmt_rows(ENGINE.logs.recent(min(n, 30))))
+
+
+async def bad(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/bad [n]: answers with 👎, template fallbacks or errors: the ones to check first."""
+    if not is_admin(update):
+        return
+    n = int(context.args[0]) if context.args and context.args[0].isdigit() else 10
+    await send_long(update.effective_message, fmt_rows(ENGINE.logs.recent(min(n, 30), only_bad=True)))
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await registered(update, context, "/start"):
+        return
     await update.effective_message.reply_text(HELP_HA + "\n\n_" + config.ATTRIBUTION + "_", parse_mode=ParseMode.MARKDOWN,
                                               reply_markup=examples_kb())
 
@@ -221,6 +340,11 @@ async def murya(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str = None):
     text = text or update.effective_message.text
+    if await registered(update, context, text):
+        await answer_text(update, context, text)
+
+
+async def answer_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     uid = update.effective_user.id
     st = Status(update, ENGINE.nlu.detect_lang(text.lower()))
     await st.start("understand")
@@ -238,12 +362,17 @@ async def on_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if media.duration and media.duration > 120:
         await msg.reply_text("Yi hakuri, a takaita sakon murya zuwa minti 2.")
         return
+    f = await media.get_file()
+    data = bytes(await f.download_as_bytearray())
+    suffix = ".ogg" if msg.voice else "." + (media.mime_type or "audio/mpeg").split("/")[-1]
+    if await registered(update, context, voice=(data, suffix)):
+        await answer_voice(update, context, data, suffix)
+
+
+async def answer_voice(update: Update, context: ContextTypes.DEFAULT_TYPE, data: bytes, suffix: str):
     st = Status(update, "ha")
     await st.start("listen")
     try:
-        f = await media.get_file()
-        data = bytes(await f.download_as_bytearray())
-        suffix = ".ogg" if msg.voice else "." + (media.mime_type or "audio/mpeg").split("/")[-1]
         reply = await asyncio.to_thread(ENGINE.handle_voice, "telegram", update.effective_user.id, data, suffix,
                                         progress=st.from_thread)
     finally:
@@ -264,6 +393,13 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("Na gode da ra'ayinku! 🙏" if val > 0 else "Na gode. Za mu inganta. 🙏")
     elif kind == "ex":
         await on_text(update, context, text=EXAMPLES[int(rest[0])])
+    elif kind == "nm":   # "use my Telegram name"
+        await q.edit_message_reply_markup(reply_markup=None)
+        u = update.effective_user
+        await registered(update, context, " ".join(x for x in (u.first_name, u.last_name) if x))
+    elif kind == "org":
+        await q.edit_message_reply_markup(reply_markup=None)
+        await registered(update, context, ORG_CHOICES[int(rest[0])])
 
 
 def main():
@@ -281,6 +417,11 @@ def run(engine):
     app.add_handler(CommandHandler(["help", "taimako"], help_cmd))
     app.add_handler(CommandHandler(["about", "game"], about))
     app.add_handler(CommandHandler(["murya", "voice"], murya))
+    app.add_handler(CommandHandler(["canza", "profile"], canza))
+    app.add_handler(CommandHandler("myid", myid))
+    app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CommandHandler("recent", recent))
+    app.add_handler(CommandHandler("bad", bad))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     app.add_handler(CallbackQueryHandler(on_callback))

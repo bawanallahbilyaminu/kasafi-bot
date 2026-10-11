@@ -66,6 +66,15 @@ python -m app.run_all                   :: Telegram + WhatsApp webhook on port 8
 
 Keep the laptop on mains power with sleep disabled (Settings → System → Power → Sleep: Never).
 
+### Registration and admin commands
+New users are asked for their **name** and **organisation** before the first answer (Telegram and WhatsApp). Their
+first question is kept and answered right after. `/canza` updates the profile. Set `REQUIRE_REGISTRATION=0` to turn
+this off.
+
+Put your Telegram id in `.env` as `ADMIN_TELEGRAM_IDS` (send `/myid` to the bot to see it), then use:
+`/stats` (totals, voice share, N-ATLaS rate, feedback, organisations), `/recent 10` (latest questions and answers
+with who asked) and `/bad 10` (👎, template fallbacks and errors: check these first).
+
 ### What users see while the bot works (Telegram)
 One status message updates live: "⏳ Ina sauraron sakon muryarka…" → "🎙️ Na ji: “…”" → "✅ Na fahimci tambayar" →
 "⏳ Ina duba kasafin kudi…" → "⏳ Ina rubuta amsa (N-ATLaS)…". Telegram's "typing…" / "recording voice…" indicator

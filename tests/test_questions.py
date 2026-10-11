@@ -4,6 +4,7 @@ Run: python -m tests.test_questions
 """
 import os
 import sys
+from pathlib import Path
 import tempfile
 
 os.environ["LLM_BACKEND"] = "none"
@@ -94,8 +95,33 @@ def year_checks():
     return fails
 
 
+def onboarding_checks():
+    import tempfile
+    from app.logstore import LogStore
+    from app.onboarding import Onboarding
+    ob = Onboarding(LogStore(Path(tempfile.mkdtemp()) / "t.sqlite"))
+    fails = 0
+    steps = [ob.step("u1", "whatsapp", "join silver-cat"), ob.step("u1", "whatsapp", "Nawa aka ware wa lafiya a 2026?"),
+             ob.step("u1", "whatsapp", "Aminu Bello"), ob.step("u1", "whatsapp", "babu")]
+    want = [(False, "name"), (False, "name"), (False, "org"), (True, None)]
+    for st, (done, stage) in zip(steps, want):
+        if st.done != done or st.stage != stage:
+            print(f"FAIL onboarding: {st}"); fails += 1
+    if steps[-1].pending != "Nawa aka ware wa lafiya a 2026?":
+        print("FAIL onboarding: question asked during registration was not kept"); fails += 1
+    u = ob.profile("u1")
+    if not u or u["name"] != "Aminu Bello" or u["organization"] != "None":
+        print(f"FAIL onboarding: profile {u}"); fails += 1
+    v = [ob.step("u2", "whatsapp", "", pending="media:audio/ogg|https://x/1"), ob.step("u2", "whatsapp", "Hauwa"),
+         ob.step("u2", "whatsapp", "UNICEF")]
+    if v[-1].pending != "media:audio/ogg|https://x/1":
+        print("FAIL onboarding: voice note sent before registering was not kept"); fails += 1
+    print(f"onboarding: {'OK' if not fails else f'{fails} failures'}")
+    return fails
+
+
 def main():
-    speech_fails = speech_checks() + year_checks()
+    speech_fails = speech_checks() + year_checks() + onboarding_checks()
     e = Engine(load_models=False)
     fails = 0
     for q, want in CASES:

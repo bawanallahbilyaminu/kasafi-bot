@@ -20,8 +20,13 @@ def main(other):
     c = ", ".join(cols)
     n = con.execute(f"INSERT INTO interactions ({c}) SELECT {c} FROM o.interactions x WHERE NOT EXISTS "
                     "(SELECT 1 FROM interactions m WHERE m.ts_utc=x.ts_utc AND m.user_hash=x.user_hash)").rowcount
+    has = con.execute("SELECT 1 FROM o.sqlite_master WHERE name='users'").fetchone()
+    nu = 0
+    if has:  # registered users: keep the completed record
+        nu = con.execute("INSERT OR REPLACE INTO users SELECT x.* FROM o.users x LEFT JOIN users m USING (user_hash) "
+                         "WHERE m.user_hash IS NULL OR (x.stage='done' AND coalesce(m.stage,'')!='done')").rowcount
     con.commit()
-    print(f"merged {n} interactions")
+    print(f"merged {n} interactions, {nu} users")
 
 
 if __name__ == "__main__":

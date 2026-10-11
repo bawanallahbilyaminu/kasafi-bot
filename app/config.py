@@ -65,3 +65,9 @@ BUDGET_TITLE_EN = "Sokoto State 2026 Approved Budget"
 
 ATTRIBUTION = ("N-ATLaS and Hausa-ASR are powered by Awarri Technologies in an initiative of the Federal Ministry "
                "of Communications, Innovation and Digital Economy.")
+
+# --- Users ---
+# Ask for name + organisation before first use (stored in the log DB, `users` table)
+REQUIRE_REGISTRATION = env("REQUIRE_REGISTRATION", "1") == "1"
+# Telegram ids allowed to use /stats, /recent, /bad (send /myid to the bot to see yours). Comma-separated.
+ADMIN_TELEGRAM_IDS = {int(x) for x in env("ADMIN_TELEGRAM_IDS", "").replace(" ", "").split(",") if x.isdigit()}

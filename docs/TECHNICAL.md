@@ -174,6 +174,15 @@ OGG/Opus.
   2025), so allocation is never presented as spending.
 
 ## 7. Privacy
+- **Registration:** before the first answer, users give their name and organisation (ministry, agency, development
+  partner, CSO…). A question asked before registering is kept and answered as soon as they finish. This lets the
+  team review usage per organisation and follow up on poor answers. Users are told what is stored, and `/canza`
+  updates it.
+- Admins (Telegram ids in `ADMIN_TELEGRAM_IDS`) can review usage live: `/stats` (counts, voice share, N-ATLaS
+  answer rate, feedback, organisations), `/recent` (latest questions and answers with who asked) and `/bad`
+  (👎, template fallbacks and errors).
+- The public evidence file (`interactions.csv`) contains the organisation but never names; names stay in
+  `users_private.csv`, which is not published.
 - User ids (Telegram id or WhatsApp number) are stored only as a salted SHA-256 hash.
 - Users' audio is transcribed in memory and not stored.
 - The bot's own WhatsApp voice replies are saved in `data/media/`, so Twilio can fetch them. They contain only the

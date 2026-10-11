@@ -80,21 +80,55 @@ def process(sender, body, media_url, media_type):
         send(sender, "Yi hakuri, an samu matsala. Don Allah a sake gwadawa.")
 
 
+def onboard(sender, text, media, media_type):
+    """Registration (name + organisation) before first use. Returns True when the user is registered."""
+    if not config.REQUIRE_REGISTRATION:
+        return True
+    uh = user_hash("whatsapp", sender)
+    if ENGINE.onboarding.profile(uh):
+        return True
+    pending = f"media:{media_type or 'audio/ogg'}|{media}" if media else None
+    step = ENGINE.onboarding.step(uh, "whatsapp", text, pending=pending)
+    send(sender, step.reply)
+    if step.done and step.pending:
+        if step.pending.startswith("media:"):
+            mtype, url = step.pending[6:].split("|", 1)
+            process(sender, "", url, mtype)
+        else:
+            process(sender, step.pending, None, None)
+    return False
+
+
+def handle(sender, text, media, media_type):
+    try:
+        if onboard(sender, text, media, media_type):
+            process(sender, text, media, media_type)
+    except Exception:  # noqa: BLE001
+        log.exception("handling failed")
+
+
 @app.post("/whatsapp")
 def whatsapp(From: str = Form(...), Body: str = Form(""), NumMedia: int = Form(0),
              MediaUrl0: str = Form(None), MediaContentType0: str = Form(None)):
     text = (Body or "").strip()
     low = text.lower()
+    media = MediaUrl0 if NumMedia and (MediaContentType0 or "").startswith("audio") else None
+    if config.REQUIRE_REGISTRATION and not ENGINE.onboarding.profile(user_hash("whatsapp", From)):
+        threading.Thread(target=handle, args=(From, text, media, MediaContentType0), daemon=True).start()
+        return Response(EMPTY_TWIML, media_type="application/xml")
     if not NumMedia and (low in POSITIVE or low in NEGATIVE):
         iid = ENGINE.logs.last_for_user(user_hash("whatsapp", From))
         if iid:
             ENGINE.feedback(iid, 1 if low in POSITIVE else -1)
             threading.Thread(target=send, args=(From, "Na gode da ra'ayinku! 🙏"), daemon=True).start()
         return Response(EMPTY_TWIML, media_type="application/xml")
-    if not NumMedia and low in {"join", "start", "/start", "help", "taimako", "menu"}:
+    if not NumMedia and low in {"canza", "/canza", "profile"}:
+        ENGINE.onboarding.restart(user_hash("whatsapp", From), "whatsapp")
+        threading.Thread(target=handle, args=(From, "", None, None), daemon=True).start()
+        return Response(EMPTY_TWIML, media_type="application/xml")
+    if not NumMedia and (low in {"join", "start", "/start", "help", "taimako", "menu"} or low.startswith("join ")):
         threading.Thread(target=send, args=(From, HELP_HA + "\n\n_" + config.ATTRIBUTION + "_"), daemon=True).start()
         return Response(EMPTY_TWIML, media_type="application/xml")
-    media = MediaUrl0 if NumMedia and (MediaContentType0 or "").startswith("audio") else None
     threading.Thread(target=process, args=(From, text, media, MediaContentType0), daemon=True).start()
     return Response(EMPTY_TWIML, media_type="application/xml")
 

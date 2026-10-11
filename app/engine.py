@@ -11,6 +11,7 @@ from . import config
 from .answer import HELP_EN, HELP_HA, citation, facts_block, focus, grounded, items_block, notes_block, template_answer
 from .logstore import LogStore, user_hash
 from .nlu import Understanding
+from .onboarding import Onboarding
 from .retrieve import BudgetStore
 
 log = logging.getLogger("natlas.engine")
@@ -30,6 +31,7 @@ class Engine:
         self.store = BudgetStore(config.BUDGET_DB)
         self.nlu = Understanding(config.BUDGET_DB)
         self.logs = LogStore()
+        self.onboarding = Onboarding(self.logs)
         self.llm = self.asr = self.tts = None
         if load_models and config.TTS_ENABLED:
             try:
