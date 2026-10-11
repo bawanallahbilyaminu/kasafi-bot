@@ -42,6 +42,14 @@ def main():
         t = time.time()
         text, secs = asr.transcribe(Path(a.audio).read_bytes(), Path(a.audio).suffix)
         print(f"[transcribe] {secs:.1f}s audio -> “{text}” ({time.time() - t:.1f}s)")
+        # full voice -> answer round trip on the same transcript
+        t = time.time()
+        print("[understand transcript]", llm.understand(text), f"({time.time() - t:.1f}s)")
+        from app.engine import Engine
+        eng = Engine(load_models=False)
+        eng.llm = llm
+        r = eng.handle_text("check_models", "local", text, input_type="voice")
+        print(f"[answer to transcript] ({time.time() - t:.1f}s)\n{r.text}")
     if torch.cuda.is_available():
         print(f"\nGPU memory used: {torch.cuda.max_memory_allocated() / 1e9:.2f} GB")
 

@@ -100,9 +100,11 @@ PDF problems found and fixed during extraction:
 - Wider deployment would need the commercial licence from Awarri and FMCIDE.
 
 ## 9. Known limitations
-- **Project names:** a small number of long project names that wrap across lines in the PDF pick up words from
-  the neighbouring project. Amounts are unaffected (they are reconciled), and the Excel files from MBEP will
-  remove this issue.
+- **Project names:** wrapped project names are rebuilt from the PDF layout; 22 ambiguous wraps were repaired by
+  a rule (a lowercase continuation line midway between two rows belongs to the project above). A few long names
+  may still carry a stray fragment. Amounts are unaffected (they are reconciled), and the Excel files from MBEP
+  will remove this issue. Note: the source document itself lists "Completion of Premier Hospital at Binji LGA"
+  with location Tambuwal.
 - **One unnamed project:** one IDP project row has no name in the source document; it is labelled
   "description missing".
 - **"State Wide" projects:** 81% of projects by count are tagged "State Wide", so LGA answers show only

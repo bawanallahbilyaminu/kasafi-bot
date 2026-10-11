@@ -15,6 +15,7 @@ import pdfplumber
 NUM_RE = re.compile(r"^-?[\d,]+\.\d{2}$")
 COLS = [("name", 0, 160), ("admin", 160, 250), ("economic", 250, 334),
         ("function", 334, 392), ("location", 392, 455)]
+TIE_PT = 2.5  # pt: how close to midway a line must be to count as ambiguous
 VALUE_COLS = ["actual_2024", "revised_2025", "perf_2025_jan_sep",
               "approved_2026", "estimate_2027", "estimate_2028", "nutrition_2026"]
 
@@ -101,6 +102,15 @@ def parse(pdf_path, first=49, last=75):
             if r["top"] < rows[0]["top"] - 20:
                 continue
             nearest = min(rows, key=lambda row: abs(row["top"] - r["top"]))
+            # a wrapped name line that starts in lowercase ("machines for ...", "for Premier Hospital ...")
+            # continues the project ABOVE it, even when it sits closer to the next row
+            # only when the line sits (almost) midway between two rows, i.e. the ambiguous case
+            if col_of(r["x0"]) == "name" and r["text"][:1].islower() and nearest["top"] > r["top"]:
+                above = [row for row in rows if row["top"] < r["top"] - 1]
+                if above:
+                    prev = max(above, key=lambda row: row["top"])
+                    if abs(r["top"] - prev["top"]) - abs(nearest["top"] - r["top"]) < TIE_PT:
+                        nearest = prev
             for c, txt in segments(r):
                 if c == "num":
                     continue
