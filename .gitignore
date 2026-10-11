@@ -10,6 +10,7 @@ web/client/.env
 web/server/.env
 web/server/data/
 private/
+bench/bench_log.sqlite
 
 # local voice recordings (user data)
 test-voice.ogg

@@ -105,5 +105,7 @@ Backup hosting if the laptop fails: `colab/kasafi_backup_colab.ipynb` (L4 GPU).
 ## Conventions
 - Never commit `.env` or `data/db/interactions.sqlite` (both are gitignored; the log holds user data, even
   though ids are hashed).
-- Before committing: `python -m tests.test_questions` and `python -I pipeline\validate.py data\db\budget.sqlite`.
+- Before committing: `python -m tests.test_questions`, `python -I pipeline\validate.py data\db\budget.sqlite`
+  and the benchmark `python bench/run_benchmark.py` (+ `--set holdout` and `--set holdout2`); all must stay at 100%.
+  When a real user question fails, add it to `bench/build_questions.py` (with its expected answer) before fixing it.
 - The model must never be the source of a number. Facts come from SQLite; N-ATLaS only phrases them.

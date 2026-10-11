@@ -441,6 +441,10 @@ class BudgetStore:
 
     def lga(self, p, code):
         r = Retrieval("lga")
+        if code.startswith("X-"):          # a real LGA with no projects tagged to it in the documents
+            nm = code[2:].title()
+            r.subject_ha, r.subject_en, r.note = f"Karamar Hukumar {nm}", f"{nm} LGA", "untagged"
+            return r
         row = self.con.execute("SELECT * FROM line_items WHERE kind='exp_location' AND measure='total' AND code=?", (code,)).fetchone()
         name = row["name"].title() if row else code
         if not row:

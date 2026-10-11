@@ -31,6 +31,16 @@ NOT_FOUND_EN = ("Sorry, I couldn't tell which ministry, sector or LGA you mean. 
                 "agriculture in 2026?\" or \"What projects are in Wamakko?\"")
 
 
+OUT_OF_SCOPE_HA = ("Ni ina amsa tambayoyi ne kawai game da kasafin kudin Jihar Sokoto (2025 da 2026) da yadda aka aiwatar "
+                   "da shi. Gwada misali: \"Nawa aka ware wa lafiya a 2026?\"")
+OUT_OF_SCOPE_EN = ("I only answer questions about the Sokoto State budget (2025 and 2026) and how it was implemented. "
+                   "Try: \"How much is allocated to health in 2026?\"")
+UNTAGGED_HA = ("Babu wani aikin raya kasa a kasafin 2026 da aka sanya wa {name} kai tsaye. Yawancin ayyukan jiha an tsara su "
+               "a matsayin 'State Wide' (na duk jiha), wadanda su ma suna iya shafar {name}. Gwada: \"Wadanne ayyuka ne na duk jiha "
+               "a fannin lafiya?\"")
+UNTAGGED_EN = ("No capital project in the 2026 budget is tagged to {name} specifically. Most projects are budgeted 'State Wide' "
+               "and may also benefit {name}. Try asking about a sector, e.g. \"State-wide health projects\".")
+
 DOC_HA = {"budget2026": "Kasafin Kudin Jihar Sokoto na 2026 (wanda aka amince)",
           "budget2025": "Kasafin Kudin Jihar Sokoto na 2025 (wanda aka amince)"}
 DOC_EN = {"budget2026": "Sokoto State 2026 Approved Budget", "budget2025": "Sokoto State 2025 Approved Budget"}
@@ -150,6 +160,8 @@ def notes_block(ret, lang):
 
 
 def template_answer(ret, lang):
+    if ret.note == "untagged":
+        return (UNTAGGED_HA if lang == "ha" else UNTAGGED_EN).format(name=ret.subject_en.replace(" LGA", ""))
     if not ret.facts and not ret.items:
         return NOT_FOUND_HA if lang == "ha" else NOT_FOUND_EN
     head = {"ha": f"*{ret.subject_ha}*" if ret.subject_ha else "", "en": f"*{ret.subject_en}*" if ret.subject_en else ""}[lang]

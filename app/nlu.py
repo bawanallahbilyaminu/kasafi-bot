@@ -3,6 +3,7 @@
 N-ATLaS also produces an English rendering of the question (see engine.py); both the original
 text and that rendering are scanned here, so a match in either language works.
 """
+import difflib
 import re
 import sqlite3
 import unicodedata
@@ -12,18 +13,18 @@ from dataclasses import dataclass, field
 # Hausa / English sector words -> ministry-level admin code (aggregate of the ministry + its agencies)
 SECTOR_WORDS = {
     "052100000000": ["lafiya", "asibiti", "asibitoci", "magani", "magunguna", "health", "hospital", "clinic", "likita"],
-    "051700000000": ["ilimi", "makaranta", "makarantu", "education", "school", "schools", "malamai", "dalibai", "firamare",
+    "051700000000": ["ilimi", "makaranta", "makarantu", "education", "edu", "school", "schools", "malamai", "dalibai", "firamare",
                      "sakandare", "primary school", "secondary school"],
     "056900000000": ["jami'a", "jamia", "university", "polytechnic", "kwalejin ilimi", "higher education",
                      "ilimi mai zurfi"],
     "056905500100": ["scholarship", "scholarships", "tallafin karatu", "guraben karatu"],
-    "021500000000": ["noma", "manoma", "taki", "agriculture", "farming", "farmers", "fertilizer", "fertiliser", "irrigation",
+    "021500000000": ["noma", "manoma", "taki", "agriculture", "agric", "farming", "farmers", "fertilizer", "fertiliser", "irrigation",
                      "ban ruwa"],
-    "025200000000": ["ruwan sha", "rijiya", "rijiyoyi", "burtsatse", "water", "borehole", "boreholes", "water supply"],
+    "025200000000": ["ruwan sha", "rijiya", "rijiyoyi", "burtsatse", "water", "borehole", "boreholes", "water supply",
+                     "harkar ruwa", "ma'aikatar ruwa", "albarkatun ruwa", "water resources"],
     "023400000000": ["hanya", "hanyoyi", "titi", "tituna", "gada", "gadoji", "road", "roads", "bridge", "works", "ministry of works", "ma'aikatar ayyuka", "ayyukan gine-gine", "infrastructure", "infrastructures", "ababen more rayuwa", "kayan more rayuwa"],
     "017000000000": ["tsaro", "security", "'yan bindiga", "yan bindiga", "bandits", "vigilante"],
-    "017200000000": ["addini", "masallaci", "masallatai", "religious", "mosque", "zakka", "zakat", "hisbah", "almajiri",
-                     "aikin hajji", "hajj"],
+    "017200000000": ["addini", "masallaci", "masallatai", "religious", "mosque"],   # Hisbah, Zakat, Almajiri, Pilgrims: own agencies
     "051400000000": ["harkokin mata", "ma'aikatar mata", "mata da yara", "women", "women affairs"],
     "051300000000": ["matasa", "wasanni", "youth", "sports", "nakasa", "disability", "disabilities"],
     "053500000000": ["muhalli", "ambaliya", "zaizayar kasa", "environment", "erosion", "flood", "sanitation"],
@@ -44,7 +45,7 @@ SECTOR_WORDS = {
     "022800000000": ["kimiyya", "science and technology"],
     "027900000000": ["fasahar zamani", "digital economy", "ict", "innovation"],
     "028900000000": ["koyon sana'a", "sana'o'i", "skills acquisition", "entrepreneurship"],
-    "055100000000": ["kananan hukumomi", "local government", "sarakuna", "chieftaincy"],
+    "055100000000": ["ma'aikatar kananan hukumomi", "kananan hukumomi", "local government affairs", "ministry for local government", "sarakuna", "chieftaincy"],
     "011100800100": ["sema", "emergency management", "agajin gaggawa"],
     "052100300100": ["kiwon lafiya matakin farko", "primary health", "phc", "cibiyoyin lafiya"],
     "051700300100": ["subeb", "universal basic education"],
@@ -53,9 +54,11 @@ SECTOR_WORDS = {
 # Cross-cutting topics answered from the FUNCTIONAL classification (all MDAs together)
 FUNCTION_WORDS = {
     "710": ["social protection", "kariyar zamantakewa", "kariya ga marasa karfi", "marasa galihu", "marasa karfi",
+            "vulnerable", "the poor", "poor and vulnerable", "masu rauni",
             "talakawa", "cash transfer", "tallafin kudi", "social safety net", "safety net", "social security",
             "jin dadin jama'a", "tallafi ga talakawa"],
-    "7102": ["pension", "pensions", "fansho", "'yan fansho", "yan fansho", "gratuity", "old age", "tsofaffi"],
+    "7102": ["pension", "pensions", "pensioner", "pensioners", "retirees", "fansho", "'yan fansho", "yan fansho",
+             "gratuity", "old age", "tsofaffi", "masu ritaya"],
     "7101": ["disability benefits", "masu bukata ta musamman"],
     "7104": ["family and children", "kananan yara", "children welfare"],
     "7105": ["unemployment", "rashin aikin yi", "marasa aikin yi"],
@@ -81,7 +84,7 @@ MEASURE_WORDS = {
     "overhead": ["gudanarwa", "overhead", "running cost", "kudaden gudanarwa", "recurrent"],
     "capital": ["manyan ayyuka", "ayyukan raya kasa", "capital", "capital projects", "aikace-aikace"],
     "debt_service": ["bashi", "basussuka", "debt", "loan", "loans"],
-    "revenue": ["kudaden shiga", "kudaden shigar", "kudin shiga", "kudin shigar", "samun kudi", "haraji", "revenue", "igr", "faac", "income", "tax", "kason tarayya"],
+    "revenue": ["kudaden shiga", "kudaden shigar", "kudin shiga", "kudin shigar", "samun kudi", "haraji", "revenue", "igr", "faac", "income", "tax", "kason tarayya", "asusun tarayya", "federation account", "federal allocation"],
 }
 PERF_WORDS = ["an kashe", "aka kashe", "kashe", "kashewa", "an yi amfani", "aiwatarwa", "aiwatar", "spent", "spend",
               "performance", "actual", "released", "implemented", "implementation", "an saki", "aka saki"]
@@ -105,14 +108,30 @@ STATUS_WORDS = ["an fara", "aka fara", "fara a", "ba a kammala", "ba a gama", "b
                 "bakari", "ba kari", "ci gaba", "cigaba", "shi gaba", "chi gaba", "ci-gaba", "progress", "ongoing", "continuing", "carried over", "carry over", "uncompleted",
                 "incomplete", "not completed", "not finished", "abandoned", "watsi", "ba a fara", "sabbin ayyuka",
                 "sababbin ayyuka", "new projects", "started", "still running", "har yanzu", "kammala", "completed",
-                "finished", "dropped", "an daina", "stalled", "tsaya", "tsaye", "status"]
+                "finished", "dropped", "an daina", "stalled", "tsaya", "tsaye", "status", "nothing was spent", "nothing spent",
+                "not spent", "unspent", "ba a kashe", "ba a kashe ko sisi", "no money spent", "were not funded"]
 # "how many projects": explicit count phrases always count. A bare "nawa" does not: before the verb it means
 # "how much" ("Nawa aka ware wa ayyukan ilimi?"); only after the noun is it "how many" ("Ayyuka nawa ne a Tambuwal?").
 COUNT_WORDS = ["how many", "number of", "guda nawa", "adadin", "yawan"]
+COUNT_RE = r"ayyuka(n)?( \w+)? nawa|nawa ne ayyuka|aiki nawa"   # "ayyuka nawa", "ayyukan lafiya nawa"
+# soft count phrases count only when the question has no money words ("Ma'aikatar ayyuka nawa aka ware mata?" is
+# "how much was the Ministry of Works allocated", not a project count)
 SOFT_COUNT_RE = re.compile(r"\b(?:ayyuka|ayyukan|aiki|aikin|projects?) nawa\b|\b(?:done|executed|implemented|carried out|"
-                           r"aka yi|an yi|aka aiwatar|an aiwatar)\b")
+                           r"aka yi|an yi|aka aiwatar|an aiwatar)\b|" + COUNT_RE)
 MONEY_WORDS = ["ware", "warewa", "kashe", "kudi", "kudin", "kudade", "kudaden", "naira", "how much", "allocated",
                "allocation", "spent", "spend", "cost"]
+# real LGAs with no capital projects tagged to them in the budget documents
+UNTAGGED_LGAS = {"X-GUDU": ["gudu"], "X-RABAH": ["rabah"], "X-TURETA": ["tureta"]}
+OTHER_STATES = ["abia", "adamawa", "akwa ibom", "anambra", "bauchi", "bayelsa", "benue", "borno", "cross river", "delta",
+                "ebonyi", "edo", "ekiti", "enugu", "gombe", "imo", "jigawa", "kaduna", "kano", "katsina", "kebbi", "kogi",
+                "kwara", "lagos", "legas", "nasarawa", "niger state", "ogun", "ondo", "osun", "oyo", "plateau", "rivers",
+                "taraba", "yobe", "zamfara", "fct", "federal budget", "kasafin tarayya", "kasafin gwamnatin tarayya",
+                "nigeria's budget", "national budget"]
+OFF_TOPIC_RE = (r"\b(who is|wanene|where is|ina ne \w+( \w+)? (take|yake)|weather|yanayi|joke|barkwanci|poem|capital of|babban birnin|football|kwallo|recipe|"
+                r"translate)\b")
+PRICE_RE = r"\b(farashi\w*|price of|cost of a|how much is a bag|buhun)\b"   # market prices are not budget questions
+BUDGET_RE = (r"\b(nawa|how much|budget|kasafi|kasafin|kudi|kudin|kudade|kudaden|naira|allocat\w*|spen[dt]\w*|ware|kashe|"
+             r"ayyuka|ayyukan|projects?|revenue|igr|faac|salar\w*|albashi|capital|overhead|implement\w*|aiwatar\w*)\b")
 RANK_TOP = ["mafi yawa", "mafi girma", "fi yawa", "fi girma", "mafi samun", "fi samun", "highest", "largest", "biggest",
             "most", "top", "ta fi", "ya fi", "suka fi"]
 RANK_BOTTOM = ["mafi karanci", "mafi kankanta", "fi karanci", "fi kankanta", "mafi kadan", "lowest", "smallest", "least",
@@ -146,6 +165,11 @@ def has_word(text, w):
     return re.search(r"(?<![a-z'])" + re.escape(w) + r"(?:n|r)?(?![a-z'])", text) is not None
 
 
+SEARCH_STOP = {"which", "what", "where", "projects", "project", "show", "list", "there", "build", "building", "built",
+               "with", "that", "this", "from", "have", "been", "will", "into", "about", "ayyuka", "ayyukan", "aikin",
+               "wadanne", "ina", "ake", "akwai", "sokoto", "state", "budget", "kasafin", "2025", "2026", "plan", "planned"}
+
+
 @dataclass
 class Parsed:
     text: str
@@ -164,6 +188,7 @@ class Parsed:
     rank_metric: str = None   # allocation | implementation | growth | decline
     rank_unit: str = None     # ministry | lga | project
     compare: bool = False
+    off_topic: bool = False
 
     def as_dict(self):
         return {k: getattr(self, k) for k in self.__dataclass_fields__}
@@ -205,10 +230,11 @@ class Understanding:
         con2.close()
         con.close()
         self.mda_tokens = []
-        ministry_names = {c[:4]: norm(n) for c, n in self.mdas if c[4:] == "0" * 8}
+        hq = lambda n: re.sub(r"\bmin\b\.?", "ministry", norm(n))
+        ministry_names = {c[:4]: hq(n) for c, n in self.mdas if c[4:] == "0" * 8}
         for code, name in self.mdas:
             # an HQ unit named exactly like its ministry ("Ministry of Health") resolves to the whole ministry
-            if code[4:] != "0" * 8 and norm(name) == ministry_names.get(code[:4]):
+            if code[4:] != "0" * 8 and hq(name) == ministry_names.get(code[:4]):
                 code = code[:4] + "0" * 8
             n = norm(name)
             toks = [t for t in re.findall(r"[a-z']+", n) if t not in STOP and len(t) > 2]
@@ -222,6 +248,10 @@ class Understanding:
             for t in toks:
                 freq.setdefault(t, set()).add(code)
         places = {w for names in self.lga_aliases.values() for n in names for w in re.findall(r"[a-z']+", n)} | {"sokoto"}
+        places |= {w for ws in SECTOR_WORDS.values() for p_ in ws for w in re.findall(r"[a-z']+", p_)}   # sector words win
+        self.names_by_code = {c: norm(n) for c, n in self.mdas}
+        self.fuzzy_vocab = sorted({w for ws in SECTOR_WORDS.values() for w in ws if " " not in w and len(w) >= 4}
+                                  | {w for ws in FUNCTION_WORDS.values() for w in ws if " " not in w and len(w) >= 5})
         self.mda_unique = {t: next(iter(cs)) for t, cs in freq.items()
                            if len(cs) == 1 and len(t) >= 5 and t not in GENERIC_NAME_WORDS and t not in places}
 
@@ -238,32 +268,62 @@ class Understanding:
         ha = sum(w in ha_words for w in words)
         return "en" if en > ha else "ha"
 
+    AGENCY_ALIASES = {"zakka": "zakat", "wakafi": "waqf", "hisba": "hisbah", "almajirai": "almajiri",
+                      "alhazai": "pilgrims", "hukumar ruwa": "water board"}
+
     def match_mdas(self, t):
-        found = []
-        for code, words in SECTOR_WORDS.items():
-            if any(has_word(t, w) for w in words):
-                found.append(code)
-        # exact-ish matches against official MDA names (English renderings, acronyms)
+        """Ministries/agencies mentioned in the question, best first.
+        - sector words (Hausa/English): the longest phrase wins ("ilimi mai zurfi" over "ilimi")
+        - official names: need 2+ matching words, the full name, an acronym, or a word unique to that agency
+        - a ministry and one of its agencies: the agency is kept only if its name matched at least as strongly"""
+        for ha_, en_ in self.AGENCY_ALIASES.items():
+            if has_word(t, ha_):
+                t = t + " " + en_
         qtok = set(re.findall(r"[a-z']+", t))
-        best = []
+        sec = [(code, w) for code, ws in SECTOR_WORDS.items() for w in ws if has_word(t, w)]
+        sec = [(c, w) for c, w in sec if not any(w != w2 and w in w2 for _, w2 in sec)]
+        names = {}
         for code, name, toks, acr in self.mda_tokens:
             if any(a in qtok for a in acr):
-                best.append((10, code)); continue
+                names[code] = max(names.get(code, 0), 10); continue
             if not toks:
                 continue
-            hit = len(toks & qtok) / len(toks)
-            if hit >= 0.99 or (hit >= 0.6 and len(toks & qtok) >= 2):
-                best.append((hit * len(toks), code))
-            elif any(self.mda_unique.get(t) == code for t in toks & qtok):
-                best.append((1.5 + len(toks & qtok), code))
-        best.sort(reverse=True)
-        for _, code in best[:2]:
-            if code not in found:
-                found.append(code)
-        # if both a ministry and one of its agencies matched by name, keep the more specific agency
-        specific = [c for c in found if c[4:] != "00000000"]
-        found = [c for c in found if not (c[4:] == "00000000" and any(s[:4] == c[:4] for s in specific))] if specific else found
-        return found[:3]
+            m = toks & qtok
+            cov = len(m) / len(toks)
+            phrase = len(self.names_by_code.get(code, "")) > 6 and self.names_by_code.get(code, "#") in t
+            uniq = any(self.mda_unique.get(x) == code for x in m)
+            if phrase or (cov >= 0.6 and len(m) >= 2) or uniq:
+                names[code] = max(names.get(code, 0), cov * 2 + len(m) + (3 if phrase else 0) + (1.5 if uniq else 0))
+        # a sector word that is only part of a matched agency's name ("school" in "Works School") is not a subject
+        name_toks = set()
+        for code, _n, toks, _a in self.mda_tokens:
+            if code in names:
+                name_toks |= toks
+        sec = [(c, w) for c, w in sec if c in names or not set(re.findall(r"[a-z']+", w)) <= name_toks]
+        scores = dict(names)
+        for c, w in sec:
+            scores[c] = max(scores.get(c, 0), 2.5 + len(w.split()))
+        if not scores:   # typos: "lafia", "ilmi", "helth"
+            for tok in qtok:
+                if len(tok) >= 4:
+                    close = difflib.get_close_matches(tok, self.fuzzy_vocab, n=1, cutoff=0.85)
+                    for code, ws in SECTOR_WORDS.items():
+                        if close and close[0] in ws:
+                            scores[code] = max(scores.get(code, 0), 2.0)
+        found = [c for c, _ in sorted(scores.items(), key=lambda x: -x[1])][:3]
+        # ministry vs its own agency: keep whichever matched more strongly (ties go to the agency, it is more specific)
+        out = []
+        for c in found:
+            if c[4:] == "0" * 8:
+                kids = [k for k in found if k[:4] == c[:4] and k != c]
+                if kids and all(scores[k] >= scores[c] for k in kids):
+                    continue
+            else:
+                parent = c[:4] + "0" * 8
+                if parent in found and scores[parent] > scores[c]:
+                    continue
+            out.append(c)
+        return out
 
     @staticmethod
     def _only_budget_words(t):
@@ -276,7 +336,10 @@ class Understanding:
                   "what", "is", "the", "of", "how", "much", "state", "for", "in", "this", "year", "bana", "shekara",
                   "shekarar", "ina", "son", "sanin", "fada", "min", "mini", "game", "akan", "aka", "an", "kashe",
                   "ware", "daga", "zuwa", "yanzu", "spent", "so", "far", "has", "been", "much", "many", "har", "tun",
-                  "jimillar", "duka", "dukka", "gaba", "daya", "allocated", "used", "amfani", "yi"}
+                  "jimillar", "duka", "dukka", "gaba", "daya", "allocated", "used", "amfani", "yi", "ya", "kai", "ta",
+                  "actually", "was", "were", "did", "total", "overall", "size", "big", "large", "get", "got", "kashe",
+                  "2023", "2024", "2025", "2026", "it", "its", "wannan", "nan", "percentage", "percent", "implemented",
+                  "implementation", "rate", "kashi", "aiwatar", "aiwatarwa", "aka", "cikin", "dari"}
         return words <= filler
 
     def match_functions(self, t):
@@ -299,6 +362,9 @@ class Understanding:
             out.remove("33320400")
         if "33320900" in out and not re.search(r"karamar hukuma|lga|local government|isa lga|a isa", t):
             out.remove("33320900")  # "isa" also means "enough/reach"
+        for code, al in UNTAGGED_LGAS.items():
+            if any(has_word(t, a) for a in al) and not re.search(r"gudun hijira", t):   # 'gudun hijira' = displaced
+                out.append(code)
         return out
 
     def parse(self, text, english=None):
@@ -307,6 +373,11 @@ class Understanding:
         p = Parsed(text=text)
         p.lang = self.detect_lang(t)
         p.years = sorted({int(y) for y in YEAR_RE.findall(both)})
+        if not p.years:   # relative years (budget year 2026 is "this year")
+            if re.search(r"\b(last year|previous year|bara|shekarar da ta wuce|shekarar bara)\b", t):
+                p.years = [2025]
+            elif re.search(r"\b(this year|bana|wannan shekara(r)?)\b", t):
+                p.years = [2026]
         p.performance = any(has_word(both, w) for w in PERF_WORDS)
         for m, words in MEASURE_WORDS.items():
             if any(has_word(both, w) for w in words):
@@ -323,7 +394,19 @@ class Understanding:
         is_project = any(has_word(both, w) for w in PROJECT_WORDS)
         p.wants_projects = is_project or any(w in both for w in WHAT_DONE)
 
-        mentions_projects = any(has_word(both, w) for w in PROJECT_NOUNS)
+        # "manyan ayyuka" / "capital projects" name the capital budget, not a list of projects
+        t_proj = re.sub(r"manyan ayyuka|capital projects?( budget)?|capital budget", " ", both)
+        mentions_projects = any(has_word(t_proj, w) for w in PROJECT_NOUNS)
+        is_project = is_project and any(has_word(t_proj, w) for w in PROJECT_WORDS)
+        # an LGA name inside a matched agency's name ("College of Agriculture Wurno") is not an LGA question
+        if p.lga_codes and p.mda_codes:
+            agency_names = " ".join(self.names_by_code.get(c, "") for c in p.mda_codes)
+            p.lga_codes = [c for c in p.lga_codes if not any(has_word(agency_names, a) for a in self.lga_aliases.get(c, []))]
+        strong_budget = re.search(r"\b(kasafi|kasafin|budget|allocat\w*|ware|kashe|spen[dt]\w*)\b", t)
+        p.off_topic = (bool(re.search(OFF_TOPIC_RE, t)) and not re.search(BUDGET_RE, t)) \
+            or (bool(re.search(PRICE_RE, t)) and not strong_budget) \
+            or bool(re.search(r"capital (city )?of (nigeria|the country|[a-z]+ state)|babban birnin", t)) \
+            or (any(has_word(t, s_) for s_ in OTHER_STATES) and not has_word(t, "sokoto") and not has_word(t, "sakkwato"))
         p.compare = any(has_word(both, w) for w in COMPARE_WORDS)
         top = any(has_word(both, w) for w in RANK_TOP)
         bottom = any(has_word(both, w) for w in RANK_BOTTOM)
@@ -342,12 +425,14 @@ class Understanding:
 
         if len(t) < 25 and any(has_word(t, g) for g in GREETING_WORDS) and not (p.mda_codes or p.lga_codes):
             p.intent = "greeting"
+        elif p.off_topic:
+            p.intent = "out_of_scope"
         elif mentions_projects and any(has_word(both, w) for w in STATUS_WORDS) and (
                 len(p.years) >= 2 or not p.rank_order):
             p.intent = p.analysis = "project_status"
         elif (mentions_projects and not p.project_terms and not p.rank_order
-              and (any(has_word(both, w) for w in COUNT_WORDS)
-                   or (SOFT_COUNT_RE.search(both) and not any(has_word(both, w) for w in MONEY_WORDS)))):
+              and (any(has_word(t_proj, w) for w in COUNT_WORDS)
+                   or (SOFT_COUNT_RE.search(t_proj) and not any(has_word(both, w) for w in MONEY_WORDS)))):
             # "how many projects (were done) for IDPs / in health / in Tambuwal": count + status, scoped
             p.intent = p.analysis = "project_status"
         elif p.rank_order and not (p.rank_unit == "ministry" and p.mda_codes and not p.function_codes and
@@ -370,4 +455,10 @@ class Understanding:
             p.intent = "project"
         elif re.search(TOTAL_RE, both) or self._only_budget_words(t):
             p.intent = "overview"
+        elif is_project or mentions_projects:
+            # free-text project search: "projects for drug addiction centres", "which projects build classrooms"
+            words = [w.rstrip("s") for w in re.findall(r"[a-z]{4,}", t) if w not in SEARCH_STOP]
+            if words:
+                p.project_terms = sorted(set(words))[:6]
+                p.intent = "project"
         return p

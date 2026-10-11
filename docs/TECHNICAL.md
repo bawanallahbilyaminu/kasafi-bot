@@ -178,6 +178,24 @@ OGG/Opus.
 - Each answer is labelled with what the figure is (approved 2026, revised 2025, or actual January–September
   2025), so allocation is never presented as spending.
 
+## 6a. Benchmark (`bench/`)
+408 questions with expected answers computed from the database (not written by hand): allocations, 2025 and
+2026 spending, implementation rates, capital/salary/overhead, agencies by their everyday names, all LGAs,
+cross-cutting functions, revenue, project search, project-status analysis, rankings, multi-year comparisons,
+typos, transcription-style errors, Pidgin, greetings and out-of-scope questions, in Hausa and English.
+Each answer is scored automatically: right routing, right ministry/LGA/function, the expected figure present,
+no budget figures for out-of-scope questions.
+
+| Set | Questions | Result (N-ATLaS off) |
+|---|---|---|
+| Main set (used to find and fix problems) | 309 | 309/309 after fixes; 261/309 (84%) before |
+| Held-out set 1 (written after the fixes) | 67 | 61/67 (91%) on first run; 67/67 after its fixes |
+| Held-out set 2 (written after that) | 32 | 28/32 (88%) on first run; 32/32 after its fixes |
+
+The first-run held-out scores (88–91%) are the honest estimate for unseen questions with the rules alone; in the
+live system N-ATLaS's translation and topic hints are added before routing. `python bench/run_benchmark.py --llm`
+measures the full system (N-ATLaS answer rate, why checks replaced drafts, time per question).
+
 ## 7. Privacy
 - **Registration:** before the first answer, users type their name and organisation (e.g. UNDP, UNFPA, UNICEF, a
   ministry). The first prompt says what is stored and why, and that continuing means consent (Nigeria Data

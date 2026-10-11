@@ -1,0 +1,67 @@
+{"id": "H-alloc-001", "category": "alloc", "difficulty": 1, "lang": "ha", "question": "Me aka ware wa ma'aikatar noma a kasafin bana?", "intents": ["mda"], "mda": "021500000000", "figures": ["₦17.05 biliyan", "₦17.05 billion"]}
+{"id": "H-alloc-002", "category": "alloc", "difficulty": 1, "lang": "ha", "question": "Kudin da aka ware wa asibitoci nawa ne a 2026?", "intents": ["mda"], "mda": "052100000000", "figures": ["₦124.41 biliyan", "₦124.41 billion"]}
+{"id": "H-alloc-003", "category": "alloc", "difficulty": 1, "lang": "ha", "question": "Gwamnati ta ware nawa ga ruwan sha a 2026?", "intents": ["mda"], "mda": "025200000000", "figures": ["₦44.99 biliyan", "₦44.99 billion"]}
+{"id": "H-alloc-004", "category": "alloc", "difficulty": 1, "lang": "ha", "question": "Kasafin ma'aikatar yada labarai na 2026", "intents": ["mda"], "mda": "012300000000", "figures": ["₦2.48 biliyan", "₦2.48 billion"]}
+{"id": "H-alloc-005", "category": "alloc", "difficulty": 1, "lang": "en", "question": "What's the education ministry's budget for 2026?", "intents": ["mda"], "mda": "051700000000", "figures": ["₦68.95 biliyan", "₦68.95 billion"]}
+{"id": "H-alloc-006", "category": "alloc", "difficulty": 1, "lang": "en", "question": "How much money goes to security in 2026?", "intents": ["mda"], "mda": "017000000000", "figures": ["₦26.37 biliyan", "₦26.37 billion"]}
+{"id": "H-alloc-007", "category": "alloc", "difficulty": 1, "lang": "en", "question": "Ministry of Works allocation 2026", "intents": ["mda"], "mda": "023400000000", "figures": ["₦59.17 biliyan", "₦59.17 billion"]}
+{"id": "H-alloc-008", "category": "alloc", "difficulty": 1, "lang": "en", "question": "How much is the Ministry for Higher Education getting in 2026?", "intents": ["mda"], "mda": "056900000000", "figures": ["₦33.99 biliyan", "₦33.99 billion"]}
+{"id": "H-alloc-009", "category": "alloc", "difficulty": 1, "lang": "ha", "question": "Nawa gwamnati ta tanada wa harkar lafiya a bana?", "intents": ["mda"], "mda": "052100000000", "figures": ["₦124.41 biliyan", "₦124.41 billion"]}
+{"id": "H-alloc-010", "category": "alloc", "difficulty": 1, "lang": "en", "question": "Tell me the 2026 budget for agriculture", "intents": ["mda"], "mda": "021500000000", "figures": ["₦17.05 biliyan", "₦17.05 billion"]}
+{"id": "H-spent2025-001", "category": "spent2025", "difficulty": 2, "lang": "ha", "question": "A 2025 nawa aka kashe wa tsaro?", "intents": ["mda"], "mda": "017000000000", "figures": ["₦9.8 biliyan", "₦9.8 billion"]}
+{"id": "H-spent2025-002", "category": "spent2025", "difficulty": 2, "lang": "en", "question": "Spending on agriculture last year", "intents": ["mda"], "mda": "021500000000", "figures": ["₦9.2 biliyan", "₦9.2 billion"]}
+{"id": "H-spent2025-003", "category": "spent2025", "difficulty": 2, "lang": "en", "question": "What did the works ministry actually spend in 2025?", "intents": ["mda"], "mda": "023400000000", "figures": ["₦12.61 biliyan", "₦12.61 billion"]}
+{"id": "H-spent2025-004", "category": "spent2025", "difficulty": 2, "lang": "ha", "question": "Nawa ma'aikatar ilimi ta kashe a bara?", "intents": ["mda"], "mda": "051700000000", "figures": ["₦38.22 biliyan", "₦38.22 billion"]}
+{"id": "H-spent2025-005", "category": "spent2025", "difficulty": 2, "lang": "en", "question": "How much of the health budget was used in 2025?", "intents": ["mda"], "mda": "052100000000", "figures": ["₦17.51 biliyan", "₦17.51 billion"]}
+{"id": "H-spent2025-006", "category": "spent2025", "difficulty": 2, "lang": "ha", "question": "Kudin da aka kashe a ruwan sha a 2025", "intents": ["mda"], "mda": "025200000000", "figures": ["₦13.71 biliyan", "₦13.71 billion"]}
+{"id": "H-measure-001", "category": "measure", "difficulty": 2, "lang": "ha", "question": "Nawa ne albashin ma'aikatan lafiya a 2026?", "intents": ["mda"], "mda": "052100000000", "figures": ["₦15.29 biliyan", "₦15.29 billion"]}
+{"id": "H-measure-002", "category": "measure", "difficulty": 2, "lang": "en", "question": "Capital allocation for health 2026", "intents": ["mda"], "mda": "052100000000", "figures": ["₦104.64 biliyan", "₦104.64 billion"]}
+{"id": "H-measure-003", "category": "measure", "difficulty": 2, "lang": "en", "question": "Education overhead 2026", "intents": ["mda"], "mda": "051700000000", "figures": ["₦10.53 biliyan", "₦10.53 billion"]}
+{"id": "H-measure-004", "category": "measure", "difficulty": 2, "lang": "ha", "question": "Manyan ayyukan ma'aikatar noma a 2026 nawa ne?", "intents": ["mda"], "mda": "021500000000", "figures": ["₦14.93 biliyan", "₦14.93 billion"]}
+{"id": "H-measure-005", "category": "measure", "difficulty": 2, "lang": "en", "question": "How much will the water ministry pay in salaries in 2026?", "intents": ["mda"], "mda": "025200000000", "figures": ["₦1.03 biliyan", "₦1.03 billion"]}
+{"id": "H-agency-001", "category": "agency", "difficulty": 2, "lang": "en", "question": "How much does the Water Board get in 2026?", "intents": ["mda"], "mda": "025210200100"}
+{"id": "H-agency-002", "category": "agency", "difficulty": 2, "lang": "ha", "question": "Nawa aka ware wa Rural Water and Sanitation Agency?", "intents": ["mda"], "mda": "025210300100"}
+{"id": "H-agency-003", "category": "agency", "difficulty": 2, "lang": "en", "question": "Budget for the Sokoto State Emergency Management Agency 2026", "intents": ["mda"], "mda": "011100800100"}
+{"id": "H-agency-004", "category": "agency", "difficulty": 2, "lang": "en", "question": "How much was released to SUBEB in 2025?", "intents": ["mda"], "mda": "051700300100"}
+{"id": "H-agency-005", "category": "agency", "difficulty": 2, "lang": "ha", "question": "Kasafin Hukumar Zakka da Wakafi", "intents": ["mda"], "mda": "017200700100"}
+{"id": "H-agency-006", "category": "agency", "difficulty": 2, "lang": "en", "question": "What did the judiciary spend in 2025?", "intents": ["mda"], "mda": "031800000000"}
+{"id": "H-lga-001", "category": "lga", "difficulty": 1, "lang": "ha", "question": "Ayyukan raya kasa na Illela", "intents": ["lga", "project"], "lga": "33320800"}
+{"id": "H-lga-002", "category": "lga", "difficulty": 1, "lang": "ha", "question": "Me za a yi a Bodinga a 2026?", "intents": ["lga", "project"], "lga": "33330200"}
+{"id": "H-lga-003", "category": "lga", "difficulty": 1, "lang": "ha", "question": "Ayyukan Sokoto ta Kudu", "intents": ["lga", "project"], "lga": "33311700"}
+{"id": "H-lga-004", "category": "lga", "difficulty": 1, "lang": "en", "question": "Projects in Sokoto South", "intents": ["lga", "project"], "lga": "33311700"}
+{"id": "H-lga-005", "category": "lga", "difficulty": 1, "lang": "en", "question": "borehole projects in Kebbe", "intents": ["lga", "project"], "lga": "33331000"}
+{"id": "H-lga-006", "category": "lga", "difficulty": 1, "lang": "en", "question": "What is planned for Yabo?", "intents": ["lga", "project"], "lga": "33332300"}
+{"id": "H-lga-007", "category": "lga", "difficulty": 1, "lang": "ha", "question": "Ayyukan karamar hukumar Kware", "intents": ["lga", "project"], "lga": "33311100"}
+{"id": "H-lga-008", "category": "lga", "difficulty": 1, "lang": "en", "question": "Gwadabawa LGA projects 2026", "intents": ["lga", "project"], "lga": "33320700"}
+{"id": "H-function-001", "category": "function", "difficulty": 2, "lang": "ha", "question": "Nawa ake biya 'yan fansho a 2026?", "intents": ["function"], "func": "7102"}
+{"id": "H-function-002", "category": "function", "difficulty": 2, "lang": "en", "question": "Budget for the poor and vulnerable in 2026", "intents": ["function"], "func": "710"}
+{"id": "H-revenue-001", "category": "revenue", "difficulty": 2, "lang": "ha", "question": "Kudin shigar jiha daga haraji nawa ne?", "intents": ["revenue"]}
+{"id": "H-revenue-002", "category": "revenue", "difficulty": 2, "lang": "en", "question": "How much does Sokoto expect from FAAC in 2026?", "intents": ["revenue"]}
+{"id": "H-revenue-003", "category": "revenue", "difficulty": 2, "lang": "en", "question": "Internally generated revenue 2025", "intents": ["revenue"]}
+{"id": "H-overview-001", "category": "overview", "difficulty": 1, "lang": "ha", "question": "Kasafin 2026 ya kai nawa?", "intents": ["overview"], "figures": ["₦758.7 biliyan", "₦758.7 billion"]}
+{"id": "H-overview-002", "category": "overview", "difficulty": 1, "lang": "en", "question": "Total salaries in the 2026 budget", "intents": ["overview"]}
+{"id": "H-overview-003", "category": "overview", "difficulty": 2, "lang": "en", "question": "How much of the 2025 budget was actually spent?", "intents": ["overview"]}
+{"id": "H-analysis-001", "category": "analysis", "difficulty": 3, "lang": "en", "question": "List road projects", "intents": ["project", "mda"], "wants_items": true}
+{"id": "H-analysis-002", "category": "analysis", "difficulty": 3, "lang": "en", "question": "solar projects", "intents": ["project", "mda"], "wants_items": true}
+{"id": "H-analysis-003", "category": "analysis", "difficulty": 3, "lang": "ha", "question": "Wane aiki ne mafi tsada a fannin lafiya?", "intents": ["ranking", "project", "mda"], "wants_items": false}
+{"id": "H-analysis-004", "category": "analysis", "difficulty": 3, "lang": "en", "question": "Top 3 ministries by allocation", "intents": ["ranking"], "wants_items": false}
+{"id": "H-analysis-005", "category": "analysis", "difficulty": 3, "lang": "en", "question": "Which LGA gets the least projects?", "intents": ["ranking"], "wants_items": false}
+{"id": "H-analysis-006", "category": "analysis", "difficulty": 3, "lang": "en", "question": "How many projects are new in 2026?", "intents": ["project_status"], "wants_items": false}
+{"id": "H-analysis-007", "category": "analysis", "difficulty": 3, "lang": "ha", "question": "Ayyukan hanya nawa ne a Wamakko?", "intents": ["project_status", "lga", "project"], "wants_items": false}
+{"id": "H-analysis-008", "category": "analysis", "difficulty": 3, "lang": "en", "question": "Has security funding gone up?", "intents": ["mda"], "wants_items": false}
+{"id": "H-analysis-009", "category": "analysis", "difficulty": 3, "lang": "ha", "question": "Shin an kara kudin ilimi a 2026?", "intents": ["mda"], "wants_items": false}
+{"id": "H-analysis-010", "category": "analysis", "difficulty": 3, "lang": "en", "question": "Which projects got money in 2025 but nothing was spent?", "intents": ["project_status"], "wants_items": false}
+{"id": "H-robust-001", "category": "robust", "difficulty": 3, "lang": "ha", "question": "lafiya 2026 nawa", "intents": ["mda"], "mda": "052100000000"}
+{"id": "H-robust-002", "category": "robust", "difficulty": 3, "lang": "ha", "question": "nawa aka warewa ilimi", "intents": ["mda"], "mda": "051700000000"}
+{"id": "H-robust-003", "category": "robust", "difficulty": 3, "lang": "en", "question": "how much 4 health", "intents": ["mda"], "mda": "052100000000"}
+{"id": "H-robust-004", "category": "robust", "difficulty": 3, "lang": "en", "question": "agric budget", "intents": ["mda"], "mda": "021500000000"}
+{"id": "H-robust-005", "category": "robust", "difficulty": 3, "lang": "en", "question": "budget 4 water 2026", "intents": ["mda"], "mda": "025200000000"}
+{"id": "H-robust-006", "category": "robust", "difficulty": 3, "lang": "ha", "question": "kasafin kudin ma'aikatar lafia", "intents": ["mda"], "mda": "052100000000"}
+{"id": "H-robust-007", "category": "robust", "difficulty": 3, "lang": "en", "question": "spendin on edukation 2025", "intents": ["mda"], "mda": "051700000000"}
+{"id": "H-robust-008", "category": "robust", "difficulty": 3, "lang": "ha", "question": "tsaro nawa aka ware", "intents": ["mda"], "mda": "017000000000"}
+{"id": "H-out_of_scope-001", "category": "out_of_scope", "difficulty": 3, "lang": "en", "question": "Who won the 2023 election?", "intents": ["none", "greeting", "out_of_scope"], "scope": "out"}
+{"id": "H-out_of_scope-002", "category": "out_of_scope", "difficulty": 3, "lang": "en", "question": "What's the dollar rate today?", "intents": ["none", "greeting", "out_of_scope"], "scope": "out"}
+{"id": "H-out_of_scope-003", "category": "out_of_scope", "difficulty": 3, "lang": "ha", "question": "Nawa ne kudin mota zuwa Kano?", "intents": ["none", "greeting", "out_of_scope"], "scope": "out"}
+{"id": "H-out_of_scope-004", "category": "out_of_scope", "difficulty": 3, "lang": "en", "question": "Write a letter for me", "intents": ["none", "greeting", "out_of_scope"], "scope": "out"}
+{"id": "H-out_of_scope-005", "category": "out_of_scope", "difficulty": 3, "lang": "ha", "question": "Wanene kwamishinan lafiya?", "intents": ["none", "greeting", "out_of_scope"], "scope": "out"}
+{"id": "H-out_of_scope-006", "category": "out_of_scope", "difficulty": 3, "lang": "en", "question": "What is the Lagos State budget for 2026?", "intents": ["none", "greeting", "out_of_scope"], "scope": "out"}

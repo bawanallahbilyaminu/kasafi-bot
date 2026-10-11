@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 
 from . import config
-from .answer import HELP_EN, HELP_HA, citation, facts_block, focus, grounded, items_block, notes_block, template_answer
+from .answer import HELP_EN, HELP_HA, OUT_OF_SCOPE_EN, OUT_OF_SCOPE_HA, citation, facts_block, focus, grounded, items_block, notes_block, template_answer
 from .logstore import LogStore, user_hash
 from .nlu import Understanding
 from .onboarding import Onboarding
@@ -113,6 +113,10 @@ class Engine:
         rec["ms_understand"] = int((time.time() - t1) * 1000)
         lang = p.lang
 
+        if p.intent == "out_of_scope":
+            return self._finish(channel, uid, input_type, text, OUT_OF_SCOPE_HA if lang == "ha" else OUT_OF_SCOPE_EN, t0,
+                                {**rec, "natlas_understanding": und, "english": english, "lang": lang, "intent": p.intent,
+                                 "answer_source": "scope"})
         if p.intent == "greeting":
             return self._finish(channel, uid, input_type, text, HELP_HA if lang == "ha" else HELP_EN, t0,
                                 {**rec, "natlas_understanding": und, "english": english, "lang": lang, "intent": p.intent})
@@ -151,7 +155,7 @@ class Engine:
         if ret.facts or ret.items:
             answer = f"{answer.strip()}\n\n{citation(ret, lang)}"
         rec.update({"natlas_understanding": und, "english": english, "lang": lang, "intent": p.intent,
-                    "entities": {"mda": p.mda_codes, "lga": p.lga_codes, "measure": p.measure, "years": p.years,
+                    "entities": {"mda": p.mda_codes, "lga": p.lga_codes, "function": p.function_codes, "measure": p.measure, "years": p.years,
                                  "performance": p.performance, "project_terms": p.project_terms},
                     "facts": facts, "answer_source": source, "grounding_fail": fail})
         return self._finish(channel, uid, input_type, text, answer, t0, rec)
