@@ -81,6 +81,14 @@ class BudgetStore:
                                          (y,)).fetchone()[0] if has else None
         self.full_2025 = rep(2025)     # e.g. 2025Q4 (full year)
         self.latest_2026 = rep(2026)   # e.g. 2026Q2 (Jan-Jun)
+        self._has_b25 = bool(self.con.execute("SELECT name FROM sqlite_master WHERE name='line_items_2025'").fetchone())
+
+    def b25(self, kind, measure, code):
+        """Row from the 2025 approved budget (original 2025 figures, 2023 actuals)."""
+        if not self._has_b25:
+            return None
+        return self.con.execute("SELECT * FROM line_items_2025 WHERE kind=? AND measure=? AND code=?",
+                                (kind, measure, code)).fetchone()
 
     def perf(self, kind, measure, code, report):
         if not report:
@@ -94,6 +102,10 @@ class BudgetStore:
         if not q or not q["budget_revised"]:
             return False
         per_ha, per_en = PERIOD_HA.get(self.full_2025, self.full_2025), PERIOD_EN.get(self.full_2025, self.full_2025)
+        o = self.b25(kind.replace("rev_", "revenue_"), measure if measure != "other" else "debt_service", code)
+        if o and o["approved_2025"] and abs(o["approved_2025"] - q["budget_revised"]) > 1:
+            r.add(Fact(f"{measure}_orig2025", o["approved_2025"], f"{mha} — kasafin 2025 na asali (kafin gyara)",
+                       f"{men} — original 2025 budget (before revision)", o["source_page"], source="budget2025"))
         r.add(Fact(f"{measure}_final2025", q["budget_revised"], f"{mha} — kasafin 2025 na karshe", f"{men} — 2025 final budget",
                    q["source_page"], source=self.full_2025))
         r.add(Fact(f"{measure}_spent2025", q["ytd_actual"], f"{mha} — abin da aka kashe ({per_ha})", f"{men} — spent ({per_en})",
@@ -101,6 +113,24 @@ class BudgetStore:
         r.add(Fact(f"{measure}_pct2025", pct(q["ytd_actual"], q["budget_revised"]), f"{mha} — kaso da aka aiwatar a 2025",
                    f"{men} — 2025 implementation rate", q["source_page"], is_pct=True, source=self.full_2025))
         return True
+
+    def add_trend(self, r, code, kind, row26):
+        """Spending history: 2023 actual (2025 budget doc), 2024 actual (2026 budget), 2025 actual (Q4 report), 2026 approved."""
+        o = self.b25(kind, "total", code)
+        if o and o["actual_2023"] and not any(f.key.endswith("_2023") for f in r.facts):
+            r.add(Fact("trend_2023", o["actual_2023"], "Abin da aka kashe a 2023", "Actual spending 2023", o["source_page"],
+                       source="budget2025"))
+        if o and o["perf_2024_jan_sep"]:
+            # the 2026 budget's "2024 full-year actuals" column is incomplete (N67.5bn statewide vs N166.8bn spent by
+            # Sept 2024 per the 2025 budget), so 2024 comes from the 2025 budget, Jan-Sep
+            r.add(Fact("trend_2024", o["perf_2024_jan_sep"], "Abin da aka kashe a 2024 (Janairu-Satumba)",
+                       "Actual spending 2024 (Jan-Sep)", o["source_page"], source="budget2025"))
+        q = self.perf(kind, "total", code, self.full_2025)
+        if q:
+            r.add(Fact("trend_2025", q["ytd_actual"], f"Abin da aka kashe a 2025 ({PERIOD_HA[self.full_2025]})",
+                       f"Actual spending 2025 ({PERIOD_EN[self.full_2025]})", q["source_page"], source=self.full_2025))
+        if row26:
+            r.add(Fact("trend_2026", row26["approved_2026"], "Kasafin 2026 da aka amince", "2026 approved budget", row26["source_page"]))
 
     def add_perf_2026(self, r, kind, measure, code, mha, men):
         q = self.perf(kind, measure, code, self.latest_2026)
@@ -149,7 +179,7 @@ class BudgetStore:
         tot = self.admin_row(code, "total")
         if not tot:
             return r
-        years = [y for y in p.years if y in YEAR_COL] or [2026]
+        years = [y for y in p.years if y in YEAR_COL or y == 2023] or [2026]
         if (p.performance or 2025 in years) and years != [2025]:
             pass
         perf_block = p.performance or 2025 in years
@@ -161,6 +191,18 @@ class BudgetStore:
             if not row:
                 continue
             for y in years:
+                if y in (2023, 2024):
+                    o = self.b25("exp_admin", m, code)
+                    if o:
+                        if y == 2023:
+                            r.add(Fact(f"{m}_2023", o["actual_2023"], f"{MEASURE_HA[m].capitalize()} — abin da aka kashe a 2023",
+                                       f"{MEASURE_EN[m].capitalize()} — actual 2023", o["source_page"], source="budget2025"))
+                        else:
+                            r.add(Fact(f"{m}_rev2024", o["revised_2024"], f"{MEASURE_HA[m].capitalize()} — kasafin 2024",
+                                       f"{MEASURE_EN[m].capitalize()} — 2024 revised budget", o["source_page"], source="budget2025"))
+                            r.add(Fact(f"{m}_spent2024", o["perf_2024_jan_sep"], f"{MEASURE_HA[m].capitalize()} — abin da aka kashe Jan-Sat 2024",
+                                       f"{MEASURE_EN[m].capitalize()} — spent Jan-Sep 2024", o["source_page"], source="budget2025"))
+                    continue
                 r.add(Fact(f"{m}_{y}", row[YEAR_COL[y]], f"{MEASURE_HA[m].capitalize()} — {YEAR_LABEL_HA[y]}",
                            f"{MEASURE_EN[m].capitalize()} — {YEAR_LABEL_EN[y]}", row["source_page"]))
         if measures == ["total"] and 2026 in years:
@@ -188,14 +230,22 @@ class BudgetStore:
         if 2026 in years or (p.performance and 2025 not in p.years):
             for m in (meas_perf if p.performance else measures[:1]):
                 self.add_perf_2026(r, "exp_admin", m, code, MEASURE_HA[m].capitalize(), MEASURE_EN[m].capitalize())
+        if p.compare or 2023 in p.years or 2024 in p.years:
+            self.add_trend(r, code, "exp_admin", tot)
         if p.compare and tot["revised_2025"]:
-            ch = pct(tot["approved_2026"] - tot["revised_2025"], tot["revised_2025"])
-            if not any(f.key == "total_rev2025" for f in r.facts):
-                r.add(Fact("rev2025_cmp", tot["revised_2025"], "Kasafin 2025 (wanda aka sabunta)", "2025 revised budget", tot["source_page"]))
-            if not any(f.key == "total_2026" for f in r.facts):
+            q = self.perf("exp_admin", "total", code, self.full_2025)
+            base = q["budget_revised"] if q and q["budget_revised"] else tot["revised_2025"]
+            ch = pct(tot["approved_2026"] - base, base)
+            if not any(f.key in ("total_final2025", "total_rev2025") for f in r.facts):
+                if q and q["budget_revised"]:
+                    r.add(Fact("final2025_cmp", base, "Kasafin 2025 na karshe", "2025 final budget", q["source_page"], source=self.full_2025))
+                else:
+                    r.add(Fact("rev2025_cmp", base, "Kasafin 2025 (wanda aka sabunta)", "2025 revised budget", tot["source_page"]))
+            if not any(f.key in ("total_2026", "trend_2026") for f in r.facts):
                 r.add(Fact("app2026_cmp", tot["approved_2026"], "Kasafin 2026", "2026 approved budget", tot["source_page"]))
-            r.add(Fact("chg_pct", abs(ch), "Karuwa daga 2025 zuwa 2026" if ch >= 0 else "Raguwa daga 2025 zuwa 2026",
-                       "Increase from 2025 to 2026" if ch >= 0 else "Decrease from 2025 to 2026", tot["source_page"], is_pct=True))
+            r.add(Fact("chg_pct", abs(ch), "Karuwa daga kasafin 2025 zuwa na 2026" if ch >= 0 else "Raguwa daga kasafin 2025 zuwa na 2026",
+                       "Increase from the 2025 to the 2026 budget" if ch >= 0 else "Decrease from the 2025 to the 2026 budget",
+                       tot["source_page"], is_pct=True))
         # for a ministry-level code, list its biggest agencies; for capital questions, top projects
         if code[4:] == "00000000":
             kids = self.con.execute("SELECT * FROM line_items WHERE kind='exp_admin' AND measure='total' AND length(code)=12 "

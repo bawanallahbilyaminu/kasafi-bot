@@ -90,6 +90,10 @@ with `python scripts\merge_logs.py <colab_log.sqlite>`.
 python -I pipeline\parse_budget.py   data\raw\budget2026.pdf data\db\budget.sqlite
 python -I pipeline\parse_projects.py data\raw\budget2026.pdf data\db\budget.sqlite 49 75
 python -I pipeline\validate.py       data\db\budget.sqlite
+:: 2025 approved budget (portrait layout; separate tables)
+python -I pipeline\parse_budget.py   data\raw\budget2025.pdf data\db\budget.sqlite --year 2025 --table line_items_2025 --stop 29 --no-detail
+python -I pipeline\parse_projects.py data\raw\budget2025.pdf data\db\budget.sqlite 30 48 --year 2025 --table projects_2025 --min-nums 3
+python -I pipeline\validate.py       data\db\budget.sqlite --year 2025 --table line_items_2025 --projects projects_2025
 :: quarterly implementation reports (add new ones as they are published)
 python -I pipeline\parse_reports.py   data\db\budget.sqlite data\raw\perf2025q2.pdf data\raw\perf2025q3.pdf data\raw\perf2025q4.pdf data\raw\perf2026q2.pdf
 python -I pipeline\validate_reports.py data\db\budget.sqlite

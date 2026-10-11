@@ -113,10 +113,11 @@ RANK_BOTTOM = ["mafi karanci", "mafi kankanta", "fi karanci", "fi kankanta", "ma
 GROWTH_WORDS = ["karu", "karuwa", "kari", "increase", "increased", "grew", "growth", "rise"]
 DECLINE_WORDS = ["ragu", "raguwa", "decrease", "decreased", "cut", "cuts", "reduced", "reduction", "fall"]
 COMPARE_WORDS = ["bambanci", "kwatanta", "idan aka kwatanta", "compared", "compare", "comparison", "change", "difference",
-                 "versus", "vs", "fiye da bara", "da bara"] + GROWTH_WORDS + DECLINE_WORDS
+                 "versus", "vs", "fiye da bara", "da bara", "trend", "over the years", "since", "tun", "shekaru", "canza",
+                 "canji", "history", "tarihi"] + GROWTH_WORDS + DECLINE_WORDS
 PROJECT_NOUNS = ["ayyuka", "ayyukan", "aiki", "aikin", "project", "projects"]
 UNIT_LGA = ["kananan hukumomi", "karamar hukuma", "lga", "lgas", "local government", "local governments"]
-YEAR_RE = re.compile(r"\b(2024|2025|2026|2027|2028)\b")
+YEAR_RE = re.compile(r"\b(2023|2024|2025|2026|2027|2028)\b")
 GREETING_WORDS = ["sannu", "salam", "assalamu", "hello", "hi", "barka", "ina kwana", "ina wuni", "good morning",
                   "/start", "start", "taimako", "help"]
 HAUSA_MARKERS = ["nawa", " ne", " ce", "kasafin", "kudin", "kudi", " an ", "aka", "shin", "wane", "wace", "menene",

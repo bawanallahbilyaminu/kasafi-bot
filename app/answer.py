@@ -29,8 +29,9 @@ NOT_FOUND_EN = ("Sorry, I couldn't tell which ministry, sector or LGA you mean. 
                 "agriculture in 2026?\" or \"What projects are in Wamakko?\"")
 
 
-DOC_HA = {"budget2026": "Kasafin Kudin Jihar Sokoto na 2026 (wanda aka amince)"}
-DOC_EN = {"budget2026": "Sokoto State 2026 Approved Budget"}
+DOC_HA = {"budget2026": "Kasafin Kudin Jihar Sokoto na 2026 (wanda aka amince)",
+          "budget2025": "Kasafin Kudin Jihar Sokoto na 2025 (wanda aka amince)"}
+DOC_EN = {"budget2026": "Sokoto State 2026 Approved Budget", "budget2025": "Sokoto State 2025 Approved Budget"}
 
 
 def _doc(src, lang):
@@ -127,7 +128,7 @@ def template_answer(ret, lang):
         return NOT_FOUND_HA if lang == "ha" else NOT_FOUND_EN
     head = {"ha": f"*{ret.subject_ha}*" if ret.subject_ha else "", "en": f"*{ret.subject_en}*" if ret.subject_en else ""}[lang]
     body = []
-    for f in ret.facts[:14]:
+    for f in ret.facts[:18]:
         body.append(f"• {f.text(lang)}")
     if ret.items:
         body.append("\n" + items_block(ret, lang))

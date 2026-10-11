@@ -80,6 +80,21 @@ PDF problems found and fixed during extraction:
 - letter-spaced names
 - overlapping cells in the project table
 
+### 5a. 2025 Approved Budget
+The same parsers, which now read each document's column layout and years from its header rows, load the 2025
+approved budget into `line_items_2025` (2,117 rows) and `projects_2025` (1,695 projects).
+`validate.py --year 2025` runs **3,504 checks, all passing**, apart from two **documented source discrepancies**:
+the 2025 budget prints the Water Board's 2024 January–September capital performance as ₦671,280,010.00, but its
+project lines sum to ₦671,280,000.00. That ₦10 difference is inside the document itself.
+
+What it adds:
+- the **original 2025 budget**, before the mid-year revision (e.g. Education ₦59.59bn → ₦57.2bn final)
+- **2023 actuals** and **2024 January–September spending**, for multi-year trends
+
+Data-quality finding: the 2026 budget's "2024 Full Year Actuals" column totals only ₦67.5bn, while the 2025
+budget reports ₦166.8bn already spent by September 2024. The 2026 document's 2024 column is incomplete, so the
+bot takes 2024 figures from the 2025 budget instead.
+
 ### 5b. Quarterly Budget Implementation Reports (2025 Q2–Q4, 2026 Q2)
 `pipeline/parse_reports.py` loads the quarterly implementation reports into `perf_items` (7,548 rows): for every
 administrative, economic, functional and programme line it records the original budget, revised/final budget, the

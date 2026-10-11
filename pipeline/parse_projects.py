@@ -14,7 +14,38 @@ import pdfplumber
 
 NUM_RE = re.compile(r"^-?[\d,]+\.\d{2}$")
 COLS = [("name", 0, 160), ("admin", 160, 250), ("economic", 250, 334),
-        ("function", 334, 392), ("location", 392, 455)]
+        ("function", 334, 392), ("location", 392, 455)]   # 2026 budget (landscape); detect_layout() overrides
+NUM_X = 455   # numbers start right of this x (2026 budget)
+TABLE = "projects"
+YEAR = 2026
+
+
+def detect_layout(page):
+    """Read column boundaries from the header row ('Administrative Code...', 'Economic Code...', 'Function...',
+    'Location...', first year column) so portrait and landscape documents both work."""
+    global COLS, NUM_X
+    words = page.extract_words(x_tolerance=1.5, y_tolerance=2)
+    hdr = [w for w in words if 50 < w["top"] < 90]
+    def x_of(prefix):
+        w = next((w for w in hdr if w["text"].startswith(prefix)), None)
+        return w["x0"] if w else None
+    adm, eco, fun = x_of("Administrative"), x_of("Economic"), x_of("Function")
+    loc = x_of("Location") or x_of("L")
+    right_of = max(x for x in (adm, eco, fun, loc) if x) if adm and eco else 0
+    years = [w["x0"] for w in hdr if re.match(r"^20\d", w["text"]) and w["x0"] > right_of]
+    if not (adm and eco and years):
+        return
+    first_num = min(years)
+    cols = [("name", 0, adm - 4), ("admin", adm - 4, eco - 4)]
+    if fun:
+        cols += [("economic", eco - 4, fun - 4), ("function", fun - 4, (loc or first_num) - 2)]
+    else:
+        cols += [("economic", eco - 4, (loc or first_num) - 2)]
+    if loc:
+        cols += [("location", loc - 2, first_num - 2)]
+    COLS, NUM_X = cols, first_num - 2
+    print("layout:", [(c, round(a), round(b)) for c, a, b in COLS], "numbers from", round(NUM_X))
+MIN_NUMS = 4   # a numeric row needs at least this many value cells (some dashes merge into text)
 TIE_PT = 2.5  # pt: how close to midway a line must be to count as ambiguous
 VALUE_COLS = ["actual_2024", "revised_2025", "perf_2025_jan_sep",
               "approved_2026", "estimate_2027", "estimate_2028", "nutrition_2026"]
@@ -43,6 +74,8 @@ def runs_of(page):
 
 
 def col_of(x0):
+    if x0 >= NUM_X:
+        return "num"
     for name, a, b in COLS:
         if a <= x0 < b:
             return name
@@ -77,21 +110,22 @@ def segments(run):
 def parse(pdf_path, first=49, last=75):
     pdf = pdfplumber.open(pdf_path)
     projects = []
+    detect_layout(pdf.pages[first - 1])
     for pno in range(first, last + 1):
         page = pdf.pages[pno - 1]
         words = page.extract_words(x_tolerance=1.5, y_tolerance=2)
-        nums = [w for w in words if w["x1"] >= 458 and (NUM_RE.match(w["text"]) or w["text"] == "-")]
+        nums = [w for w in words if w["x1"] >= NUM_X + 3 and (NUM_RE.match(w["text"]) or w["text"] == "-")]
         rows = []
         for w in sorted(nums, key=lambda w: w["top"]):
             if rows and abs(rows[-1]["top"] - w["top"]) < 2.0:
                 rows[-1]["nums"].append(w)
             else:
-                rows.append({"top": w["top"], "nums": [w], "cells": {c[0]: [] for c in COLS}})
-        rows = [r for r in rows if len(r["nums"]) >= 4]
+                rows.append({"top": w["top"], "nums": [w], "cells": {c: [] for c in ("name", "admin", "economic", "function", "location")}})
+        rows = [r for r in rows if len(r["nums"]) >= MIN_NUMS]
         if not rows:
             continue
         for r in runs_of(page):
-            if r["x0"] >= 455:
+            if r["x0"] >= NUM_X:
                 continue
             # the 2024 column sits right after the location text; drop numbers glued onto it
             r = dict(r, text=re.sub(r"(?:\s+(?:-?[\d,]+\.\d{2}|-))+\s*$", "", r["text"]))
@@ -117,7 +151,7 @@ def parse(pdf_path, first=49, last=75):
                 nearest["cells"][c].append((r["top"], r["x0"], txt))
         for row in rows:
             rec = {"page": pno}
-            for c, _, _ in COLS:
+            for c in ("name", "admin", "economic", "function", "location"):
                 parts = sorted(row["cells"][c])
                 rec[c] = re.sub(r"\s+", " ", " ".join(p[2] for p in parts)).strip()
             rec["nums"] = sorted(((n["x1"], n["text"]) for n in row["nums"]))
@@ -158,12 +192,13 @@ def split_code(s):
 def main(pdf_path, db_path, first=49, last=75):
     projects = assign(parse(pdf_path, first, last))
     con = sqlite3.connect(db_path)
-    con.execute("DROP TABLE IF EXISTS projects")
-    con.execute("""CREATE TABLE projects (
+    vcols = [f"actual_{YEAR-2}", f"revised_{YEAR-1}", f"perf_{YEAR-1}_jan_sep", f"approved_{YEAR}",
+             f"estimate_{YEAR+1}", f"estimate_{YEAR+2}", f"nutrition_{YEAR}"]
+    con.execute(f"DROP TABLE IF EXISTS {TABLE}")
+    con.execute(f"""CREATE TABLE {TABLE} (
         id INTEGER PRIMARY KEY, project TEXT, mda_code TEXT, mda_name TEXT, economic_code TEXT, economic_name TEXT,
         function_code TEXT, function_name TEXT, location_code TEXT, location_name TEXT,
-        actual_2024 REAL, revised_2025 REAL, perf_2025_jan_sep REAL, approved_2026 REAL,
-        estimate_2027 REAL, estimate_2028 REAL, nutrition_2026 REAL, source_page INTEGER)""")
+        {", ".join(c + " REAL" for c in vcols)}, source_page INTEGER)""")
     for p in projects:
         if not p["name"] and not p["admin"]:  # the "Total Capital Expenditure" row
             continue
@@ -172,23 +207,42 @@ def main(pdf_path, db_path, first=49, last=75):
             p["admin"] = f"{m.group(1)} - {m.group(2)}"
             p["name"] = "(project description missing in budget document)"
         p["location"] = re.sub(r"(?:\s+(?:-?[\d,]+\.\d{2}|-))+\s*$", "", p["location"])
+        # admin code glued onto the end of the project name ("... Phase 2" + "022200100100 - Ministry ...")
+        m = re.match(r"^(.*?)(\d{12}) - (.+)$", p["name"])
+        if m and not p["admin"]:
+            p["name"], p["admin"] = m.group(1).strip(), f"{m.group(2)} - {m.group(3)}"
+        # project name "0" (blank in the source) glued in front of the admin code -> 13 digits
+        m = re.match(r"^(\d{13,})\s*-\s*(.*)$", p["admin"])
+        if m:
+            extra, code = m.group(1)[:-12], m.group(1)[-12:]
+            p["admin"] = f"{code} - {m.group(2)}"
+            if not p["name"]:
+                p["name"] = extra if extra.strip("0") else "(project description missing in budget document)"
         a = split_code(p["admin"]); e = split_code(p["economic"]); f = split_code(p["function"]); l = split_code(p["location"])
-        con.execute("INSERT INTO projects (project, mda_code, mda_name, economic_code, economic_name, function_code, function_name,"
-                    " location_code, location_name, actual_2024, revised_2025, perf_2025_jan_sep, approved_2026, estimate_2027,"
-                    " estimate_2028, nutrition_2026, source_page) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        con.execute(f"INSERT INTO {TABLE} (project, mda_code, mda_name, economic_code, economic_name, function_code, function_name,"
+                    f" location_code, location_name, {', '.join(vcols)}, source_page) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (p["name"], *a, *e, *f, *l, *p["values"], p["page"]))
     con.commit()
     # full-text index over project descriptions (+ MDA / economic / location names) for search
-    con.execute("DROP TABLE IF EXISTS projects_fts")
-    con.execute("CREATE VIRTUAL TABLE projects_fts USING fts5(project, mda_name, economic_name, location_name, "
-                "content='projects', content_rowid='id', tokenize='porter unicode61')")
-    con.execute("INSERT INTO projects_fts(rowid, project, mda_name, economic_name, location_name) "
-                "SELECT id, project, mda_name, economic_name, location_name FROM projects")
+    con.execute(f"DROP TABLE IF EXISTS {TABLE}_fts")
+    con.execute(f"CREATE VIRTUAL TABLE {TABLE}_fts USING fts5(project, mda_name, economic_name, location_name, "
+                f"content='{TABLE}', content_rowid='id', tokenize='porter unicode61')")
+    con.execute(f"INSERT INTO {TABLE}_fts(rowid, project, mda_name, economic_name, location_name) "
+                f"SELECT id, project, mda_name, economic_name, location_name FROM {TABLE}")
     con.commit()
-    n, tot = con.execute("SELECT count(*), sum(approved_2026) FROM projects").fetchone()
-    print(f"projects: {n}  sum approved_2026: {tot:,.2f}")
+    n, tot = con.execute(f"SELECT count(*), sum(approved_{YEAR}) FROM {TABLE}").fetchone()
+    print(f"{TABLE}: {n}  sum approved_{YEAR}: {tot:,.2f}")
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    main(args[0], args[1], *(int(a) for a in args[2:4]))
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("pdf"); ap.add_argument("db")
+    ap.add_argument("first", type=int, nargs="?", default=49)
+    ap.add_argument("last", type=int, nargs="?", default=75)
+    ap.add_argument("--year", type=int, default=2026)
+    ap.add_argument("--table", default="projects")
+    ap.add_argument("--min-nums", type=int, default=4)
+    a = ap.parse_args()
+    YEAR, TABLE, MIN_NUMS = a.year, a.table, a.min_nums
+    main(a.pdf, a.db, a.first, a.last)

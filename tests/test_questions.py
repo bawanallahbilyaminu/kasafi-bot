@@ -38,10 +38,13 @@ CASES = [  # question, expected text in the answer
     ("Wace ma'aikata ce ta fi samun kudi a kasafin 2026?", "1. Ministry of Health"),
     ("Which ministries had the lowest capital implementation in 2025?", "1. State Judiciary"),
     ("Wace karamar hukuma ce ta fi samun kudi?", "1. Wamakko"),
-    ("Kasafin lafiya ya karu idan aka kwatanta da 2025?", "kashi 168.6"),
+    ("Kasafin lafiya ya karu idan aka kwatanta da 2025?", "kashi 197.1"),
     ("Nawa aka kashe daga kasafin 2026 zuwa yanzu?", "Janairu-Yuni 2026"),
     ("Nawa aka ware wa lafiya a 2026?", "kashi 10.6"),
     ("How much IGR did the state collect in 2025?", "₦20.58 billion"),
+    ("Yaya kasafin lafiya ya canza tun 2023?", "₦13.23 biliyan"),
+    ("Nawa aka kashe a fannin ilimi a 2025?", "kafin gyara"),
+    ("Nawa aka kashe a fannin lafiya a 2024?", "Jan-Sat 2024"),
 ]
 
 
