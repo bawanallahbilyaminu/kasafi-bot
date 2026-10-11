@@ -20,7 +20,7 @@ Expose it with one of these:
 - **Tailscale (stable, recommended for the laptop):** install Tailscale on the laptop and the VPS, sign in to
   both with the same account. `ENGINE_URL=http://<laptop-tailscale-ip>:8080`. Allow port 8080 on the laptop's
   firewall for the Tailscale network.
-- **Cloudflare quick tunnel:** `cloudflared tunnel --url http://localhost:8080` and use the printed
+- **Cloudflare quick tunnel:** `cloudflared tunnel --url http://localhost:8080` (on Colab the notebook uses port 8765, because Colab's own Jupyter server is on 8080) and use the printed
   `https://….trycloudflare.com` as `ENGINE_URL`. The URL changes when the tunnel restarts. On Colab, cell 7 opens
   the tunnel and prints the URL when the `ENGINE_API_KEY` secret is set.
 
