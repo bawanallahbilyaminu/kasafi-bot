@@ -1,0 +1,28 @@
+# Kasafi web app. Started by deploy/vps-deploy.sh; settings come from /opt/kasafi-web/web.env
+name: kasafi
+services:
+  web:
+    build:
+      context: .
+      args:
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:?set CLERK_PUBLISHABLE_KEY in web.env}
+    image: kasafi-web:latest
+    container_name: kasafi-web
+    env_file: ${KASAFI_ENV_FILE:-/opt/kasafi-web/web.env}
+    environment:
+      PORT: "3001"
+      DB_PATH: /data/kasafi-web.sqlite
+      CLIENT_DIST: /app/client/dist
+    volumes:
+      - kasafi-data:/data            # chat history, profiles, cached voice replies
+    ports:
+      # 52723 = K-A-S-A-F on a phone keypad. Bound to localhost only: the reverse proxy is the public door.
+      - "127.0.0.1:${KASAFI_PORT:-52723}:3001"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  kasafi-data:
+    name: kasafi-web-data

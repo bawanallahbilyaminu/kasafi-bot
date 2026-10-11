@@ -38,32 +38,34 @@ cd ../client && cp .env.example .env     # VITE_CLERK_PUBLISHABLE_KEY
 npm install && npm run dev               # http://localhost:5173 (proxies /api to :3001)
 ```
 
-## 4. Deploy on the VPS (Ubuntu, Node 20+)
-```bash
-git clone https://github.com/bawanallahbilyaminu/kasafi-bot.git /opt/kasafi && cd /opt/kasafi/web
-cd client && cp .env.example .env && nano .env && npm ci || npm install && npm run build
-cd ../server && cp .env.example .env && nano .env && npm ci || npm install
-sudo npm i -g pm2 && pm2 start "npm start" --name kasafi-web && pm2 save && pm2 startup
-```
-nginx (`/etc/nginx/sites-available/kasafi`), then `sudo ln -s` it into `sites-enabled`, `sudo nginx -t && sudo systemctl reload nginx`:
-```nginx
-server {
-    server_name kasafi.halalnumeriq.com.ng;          # your subdomain (A record -> VPS IP)
-    client_max_body_size 10m;                        # voice notes
-    location / {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;                         # live progress (Server-Sent Events)
-        proxy_read_timeout 300s;
-    }
-}
-```
-HTTPS (the microphone only works on https): `sudo certbot --nginx -d kasafi.halalnumeriq.com.ng`
+## 4. Deploy on the VPS (Docker, one command from the laptop)
+Files: `Dockerfile`, `docker-compose.yml`, `deploy/vps-deploy.sh` (runs on the VPS), `deploy/push.ps1` (Windows) or
+`deploy/push.sh` (Git Bash/Linux).
 
-Update later: `cd /opt/kasafi && git pull && cd web/client && npm run build && pm2 restart kasafi-web`
+The app listens on **127.0.0.1:52723** on the VPS (K-A-S-A-F on a phone keypad; only the server itself can reach
+it). If that port is taken, the script moves to the next free one and remembers it.
+
+```powershell
+# once: an A record  ai.kasafi.halalnumeriq.com.ng -> your VPS IP   (at your DNS provider)
+$env:KASAFI_VPS = "root@YOUR_VPS_IP"
+git add -A; git commit -m "..."          # only committed files are deployed
+.\web\deploy\push.ps1 -Check              # shows who owns ports 80/443, DNS, settings; changes nothing
+.\web\deploy\push.ps1                     # first run creates /opt/kasafi-web/web.env on the VPS and stops
+ssh $env:KASAFI_VPS "sudo nano /opt/kasafi-web/web.env"   # fill in Clerk keys, ENGINE_URL/KEY, ADMIN_EMAILS
+.\web\deploy\push.ps1                     # build, start, health-check, publish the domain
+.\web\deploy\push.ps1 -EngineUrl https://xxxx.trycloudflare.com   # after each Colab restart (no rebuild)
+.\web\deploy\push.ps1 -Logs
+```
+
+How the domain is published depends on what already serves ports 80/443 (the script detects it):
+- **mailcow's nginx**: writes `data/conf/nginx/kasafi-web.conf` in the mailcow folder, joins mailcow's Docker
+  network, tests the config (removes it if mailcow's nginx rejects it), and, after asking you, adds the domain to
+  mailcow's `ADDITIONAL_SAN` so mailcow's Let's Encrypt certificate covers it (mailcow.conf is backed up first).
+  The upstream is resolved per request, so mailcow's nginx still starts if the Kasafi container is down.
+- **nginx on the server**: writes a site in `/etc/nginx/sites-available/` and runs certbot (`LETSENCRYPT_EMAIL`).
+- **another proxy (Traefik, Nginx Proxy Manager, Caddy…)**: prints the target to add there (`http://127.0.0.1:52723`).
+
+Data (chat history, profiles, voice replies) lives in the Docker volume `kasafi-web-data` and survives redeploys.
 
 ## Admin page (/admin)
 Put your sign-in email in `web/server/.env`: `ADMIN_EMAILS=you@example.com` (comma-separate several). After signing

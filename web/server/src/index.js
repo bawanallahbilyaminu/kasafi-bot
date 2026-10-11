@@ -245,8 +245,9 @@ app.post('/api/messages/:id/feedback', requireUser, async (req, res) => {
   res.json({ ok: true, feedback: value })
 })
 
+app.get('/api/ping', (_req, res) => res.json({ ok: true }))   // container health: does not depend on the engine
 app.get('/api/health', async (_req, res) => {
-  try { const r = await engine('/api/health'); res.json({ web: true, engine: r.ok ? await r.json() : null }) }
+  try { const r = await engine('/api/health', { signal: AbortSignal.timeout(6000) }); res.json({ web: true, engine: r.ok ? await r.json() : null }) }
   catch { res.json({ web: true, engine: null }) }
 })
 
