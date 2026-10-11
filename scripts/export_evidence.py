@@ -19,14 +19,16 @@ from app import config  # noqa: E402
 OUT = ROOT / "evidence"
 COLS = ["id", "ts_utc", "channel", "user_hash", "input_type", "audio_seconds", "transcript", "english", "lang", "intent",
         "answer_source", "grounding_fail", "ms_asr", "ms_understand", "ms_retrieve", "ms_write", "ms_total",
-        "asr_model", "llm_model", "feedback", "answer", "error"]
+        "asr_model", "llm_model", "feedback", "voice_reply", "ms_tts", "answer", "error"]
 
 
 def main():
     OUT.mkdir(exist_ok=True)
     con = sqlite3.connect(str(config.LOG_DB))
     con.row_factory = sqlite3.Row
-    rows = [dict(r) for r in con.execute(f"SELECT {', '.join(COLS)} FROM interactions "
+    have = {r[1] for r in con.execute("PRAGMA table_info(interactions)")}
+    sel = ", ".join(c if c in have else f"NULL AS {c}" for c in COLS)
+    rows = [dict(r) for r in con.execute(f"SELECT {sel} FROM interactions "
                                          "WHERE channel IN ('telegram','whatsapp') ORDER BY id")]
     with open(OUT / "interactions.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=COLS)
@@ -44,6 +46,7 @@ def main():
         intents[r["intent"] or "—"] = intents.get(r["intent"] or "—", 0) + 1
     fb = [r["feedback"] for r in rows if r["feedback"] is not None]
     natlas = sum(r["answer_source"] == "natlas" for r in rows)
+    voice_out = sum(1 for r in rows if r.get("voice_reply"))
     answered = sum(r["answer_source"] in ("natlas", "template") for r in rows)
     lat = [r["ms_total"] for r in rows if r["ms_total"]]
     asr_lat = [r["ms_asr"] for r in rows if r["ms_asr"]]
@@ -58,6 +61,7 @@ def main():
         f"| Unique users (hashed) | {users} |",
         f"| Voice notes (Hausa-ASR) | {voice} ({(100 * voice / n if n else 0):.0f}%) |",
         f"| Channels | {', '.join(f'{k}: {v}' for k, v in by_channel.items())} |",
+        f"| Answers also sent as a Hausa voice note | {voice_out} |",
         f"| Questions answered from budget data | {answered} |",
         f"| Answers written by N-ATLaS (passed grounding check) | {natlas} |",
         f"| Answers that fell back to verified template | {answered - natlas} |",

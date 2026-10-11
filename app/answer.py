@@ -18,7 +18,8 @@ HELP_HA = ("Sannu! Ni ne *Kasafi Bot* — ina amsa tambayoyi game da Kasafin Kud
            "• Nawa aka kashe a fannin ilimi a 2025?\n"
            "• Wadanne ayyuka ne za a yi a Tambuwal?\n"
            "• Ayyukan rijiyoyin burtsatse nawa ne a kasafin?\n"
-           "• Nawa ne kudaden shigar jiha?")
+           "• Nawa ne kudaden shigar jiha?\n\n"
+           "🔊 Idan kun aiko da sakon murya, zan amsa muku da murya ma. Aiko /murya don samun amsa da murya kullum.")
 HELP_EN = ("Hello! I'm *Kasafi Bot*. I answer questions about the Sokoto State 2026 Approved Budget and how the 2025 "
            "budget was implemented, straight from government documents.\n\nType or send a *voice note* in Hausa "
            "or English. Examples:\n• How much is allocated to health in 2026?\n• How much was spent on education in 2025?\n"

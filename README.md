@@ -58,6 +58,11 @@ python -m app.run_all                   :: Telegram + WhatsApp webhook on port 8
 
 Keep the laptop on mains power with sleep disabled (Settings → System → Power → Sleep: Never).
 
+### Hausa voice replies
+On by default: when someone sends a voice note, the bot answers with text **and** a Hausa voice note
+(`facebook/mms-tts-hau`, about 150 MB, downloaded automatically the first time). On Telegram, `/murya` turns voice replies on
+for every answer. `scripts\check_models.py` saves a sample to `evidence\tts_sample.ogg`; listen to it to check.
+
 ### WhatsApp (Twilio Sandbox)
 1. In the Twilio Console go to **Messaging → Try it out → Send a WhatsApp message**. Note the sandbox
    number and the join code.
@@ -65,6 +70,7 @@ Keep the laptop on mains power with sleep disabled (Settings → System → Powe
    `cloudflared tunnel --url http://localhost:8080`
 3. In **Sandbox settings → When a message comes in**, paste `https://<your-tunnel>.trycloudflare.com/whatsapp`
    and choose POST.
+   For voice-note replies on WhatsApp, also put the tunnel address in `.env`: `PUBLIC_BASE_URL=https://<your-tunnel>.trycloudflare.com`
 4. Testers send `join <code>` to the sandbox number once, then ask questions.
 
    Trial accounts are capped at 50 messages a day, so add credit to lift the cap. Testers must re-join every 3 days.

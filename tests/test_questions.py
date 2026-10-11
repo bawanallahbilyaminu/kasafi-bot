@@ -48,7 +48,20 @@ CASES = [  # question, expected text in the answer
 ]
 
 
+def speech_checks():
+    from app.speak import number_words, to_speech
+    cases = [(number_words(2026), "dubu biyu da ashirin da shida"), (number_words(15), "goma sha biyar"),
+             (number_words(124410000000), "biliyan dari da ashirin da hudu da miliyan dari hudu da goma"),
+             (to_speech("An kashe kashi 10.6 cikin 100."), "kashi goma digo shida cikin dari")]
+    bad = [(got, want) for got, want in cases if want not in got]
+    for got, want in bad:
+        print(f"FAIL speech: expected '{want}' in '{got}'")
+    print(f"speech: {len(cases) - len(bad)}/{len(cases)} passed")
+    return len(bad)
+
+
 def main():
+    speech_fails = speech_checks()
     e = Engine(load_models=False)
     fails = 0
     for q, want in CASES:
@@ -57,7 +70,7 @@ def main():
         fails += not ok
         print(("PASS" if ok else "FAIL"), q, "" if ok else f"\n  expected '{want}' in:\n{a[:300]}")
     print(f"\n{len(CASES) - fails}/{len(CASES)} passed")
-    sys.exit(1 if fails else 0)
+    sys.exit(1 if fails or speech_fails else 0)
 
 
 if __name__ == "__main__":

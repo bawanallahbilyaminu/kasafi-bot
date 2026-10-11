@@ -40,6 +40,11 @@ OPENAI_MODEL = env("OPENAI_MODEL", "NCAIR1/N-ATLaS")
 ASR_MODEL = env("ASR_MODEL", "NCAIR1/Hausa-ASR")
 ASR_ENABLED = env("ASR_ENABLED", "1") == "1"
 
+# --- Hausa voice replies (TTS) ---
+TTS_MODEL = env("TTS_MODEL", "facebook/mms-tts-hau")
+TTS_ENABLED = env("TTS_ENABLED", "1") == "1"
+VOICE_REPLY = env("VOICE_REPLY", "voice")   # voice = reply with a voice note when the user sent one | always | never
+
 HF_TOKEN = env("HF_TOKEN")
 
 # --- Channels ---
@@ -47,6 +52,9 @@ TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN")
 TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_FROM = env("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")  # Twilio sandbox number
+# Public https URL of this server (the cloudflared tunnel), needed to send voice notes on WhatsApp
+PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", "").rstrip("/")
+MEDIA_DIR = Path(env("MEDIA_DIR", ROOT / "data" / "media"))
 
 # Salt for hashing user ids in the interaction log (never store raw phone numbers / ids)
 LOG_SALT = env("LOG_SALT", "change-me")

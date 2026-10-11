@@ -63,12 +63,32 @@ async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(ABOUT, parse_mode=ParseMode.MARKDOWN)
 
 
+async def send_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, reply):
+    """Hausa voice note of the answer (when the user spoke, or chose /murya)."""
+    if not ENGINE.wants_voice(reply, context.user_data.get("voice")):
+        return
+    await update.effective_chat.send_action(ChatAction.RECORD_VOICE)
+    audio = await asyncio.to_thread(ENGINE.speak, reply)
+    if audio:
+        await update.effective_message.reply_voice(voice=audio, caption="🔊 Amsa da murya")
+
+
+async def murya(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/murya toggles voice replies for every answer (default: only when you send a voice note)."""
+    on = context.user_data.get("voice") != "always"
+    context.user_data["voice"] = "always" if on else None
+    await update.effective_message.reply_text(
+        "🔊 Zan rika amsa ku da murya a kowace tambaya. (Aiko /murya don kashewa.)" if on else
+        "🔇 Zan amsa da murya ne kawai idan kun aiko da sakon murya.")
+
+
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str = None):
     text = text or update.effective_message.text
     uid = update.effective_user.id
     await update.effective_chat.send_action(ChatAction.TYPING)
     reply = await asyncio.to_thread(ENGINE.handle_text, "telegram", uid, text)
     await send_answer(update, reply.text, reply.interaction_id)
+    await send_voice_reply(update, context, reply)
 
 
 async def on_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -83,6 +103,7 @@ async def on_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     suffix = ".ogg" if msg.voice else "." + (media.mime_type or "audio/mpeg").split("/")[-1]
     reply = await asyncio.to_thread(ENGINE.handle_voice, "telegram", update.effective_user.id, data, suffix)
     await send_answer(update, reply.text, reply.interaction_id, transcript=reply.transcript)
+    await send_voice_reply(update, context, reply)
 
 
 async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -112,6 +133,7 @@ def run(engine):
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler(["help", "taimako"], help_cmd))
     app.add_handler(CommandHandler(["about", "game"], about))
+    app.add_handler(CommandHandler(["murya", "voice"], murya))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     app.add_handler(CallbackQueryHandler(on_callback))

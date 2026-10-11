@@ -10,9 +10,11 @@ https://<tunnel>/whatsapp into Twilio Console > Messaging > Try it out > WhatsAp
 """
 import logging
 import threading
+import uuid
 
 import requests
-from fastapi import FastAPI, Form, Response
+from fastapi import FastAPI, Form, HTTPException, Response
+from fastapi.responses import FileResponse
 from twilio.rest import Client
 
 from . import config
@@ -48,6 +50,19 @@ def send(to, text):
         TWILIO.messages.create(from_=config.TWILIO_WHATSAPP_FROM, to=to, body=text[i:i + 1500])
 
 
+def send_voice(to, reply):
+    """WhatsApp voice note: Twilio fetches the audio from PUBLIC_BASE_URL/media/<file>.ogg."""
+    if not config.PUBLIC_BASE_URL or not ENGINE.wants_voice(reply):
+        return
+    audio = ENGINE.speak(reply)
+    if not audio:
+        return
+    config.MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}.ogg"
+    (config.MEDIA_DIR / name).write_bytes(audio)
+    TWILIO.messages.create(from_=config.TWILIO_WHATSAPP_FROM, to=to, media_url=[f"{config.PUBLIC_BASE_URL}/media/{name}"])
+
+
 def process(sender, body, media_url, media_type):
     try:
         if media_url:
@@ -59,6 +74,7 @@ def process(sender, body, media_url, media_type):
         else:
             reply = ENGINE.handle_text("whatsapp", sender, body)
         send(sender, reply.text + FEEDBACK_HINT)
+        send_voice(sender, reply)
     except Exception:  # noqa: BLE001
         log.exception("processing failed")
         send(sender, "Yi hakuri, an samu matsala. Don Allah a sake gwadawa.")
@@ -81,6 +97,16 @@ def whatsapp(From: str = Form(...), Body: str = Form(""), NumMedia: int = Form(0
     media = MediaUrl0 if NumMedia and (MediaContentType0 or "").startswith("audio") else None
     threading.Thread(target=process, args=(From, text, media, MediaContentType0), daemon=True).start()
     return Response(EMPTY_TWIML, media_type="application/xml")
+
+
+@app.get("/media/{name}")
+def media(name: str):
+    if not name.endswith(".ogg") or "/" in name or ".." in name:
+        raise HTTPException(404)
+    path = config.MEDIA_DIR / name
+    if not path.exists():
+        raise HTTPException(404)
+    return FileResponse(path, media_type="audio/ogg")
 
 
 @app.get("/health")

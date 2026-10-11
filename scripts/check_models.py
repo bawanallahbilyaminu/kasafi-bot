@@ -50,6 +50,20 @@ def main():
         eng.llm = llm
         r = eng.handle_text("check_models", "local", text, input_type="voice")
         print(f"[answer to transcript] ({time.time() - t:.1f}s)\n{r.text}")
+    if config.TTS_ENABLED:
+        from app.speak import to_speech
+        from app.tts import HausaTTS
+        t = time.time()
+        tts = HausaTTS()
+        print(f"\n[Hausa TTS] model={config.TTS_MODEL} loaded in {time.time() - t:.1f}s")
+        sample = "An ware wa ma'aikatar lafiya ₦124.41 biliyan a kasafin 2026. Zuwa watan Yuni an kashe kashi 10.6 cikin 100."
+        spoken = to_speech(sample)
+        t = time.time()
+        audio = tts.speak(spoken)
+        out = ROOT / "evidence" / "tts_sample.ogg"
+        out.parent.mkdir(exist_ok=True)
+        out.write_bytes(audio)
+        print(f"[speak] “{spoken}” -> {out} ({len(audio) // 1024} KB, {time.time() - t:.1f}s)")
     if torch.cuda.is_available():
         print(f"\nGPU memory used: {torch.cuda.max_memory_allocated() / 1e9:.2f} GB")
 

@@ -117,6 +117,20 @@ How the bot uses them:
 - Project-level 2025 figures still come from the 2026 budget (January–September), because the reports list
   projects only for primary health care and basic education.
 
+## 5c. Hausa voice replies
+When a user sends a voice note (or turns on `/murya`), the bot also replies with a **Hausa voice note**. The
+headline of the answer is converted to speakable Hausa by `app/speak.py`:
+- numbers and naira amounts become Hausa words: "₦124.41 biliyan" → "Naira biliyan dari da ashirin da hudu da
+  miliyan dari hudu da goma"; "kashi 10.6 cikin 100" → "kashi goma digo shida cikin dari"
+- markdown and sources are removed
+
+The text is then synthesised by **Meta MMS-TTS Hausa** (`facebook/mms-tts-hau`, VITS, CC-BY-NC 4.0) and encoded as
+OGG/Opus.
+- N-ATLaS has no TTS model, so this component only reads out the answer N-ATLaS and the database produced.
+- WhatsApp voice notes are served from `/media/` on the bot's public tunnel URL.
+- Voice replies are logged (`voice_reply`, `ms_tts`).
+- Roadmap: replace MMS with a Hausa voice fine-tuned on local speakers (commercially licensable).
+
 ## 6. Answer safety (grounding)
 - The model never sees the database. It sees only a short list of facts, each already formatted
   (for example `₦124.41 biliyan`).

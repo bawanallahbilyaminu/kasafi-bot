@@ -21,6 +21,8 @@ class Reply:
     text: str
     interaction_id: int
     transcript: str = None
+    lang: str = "ha"
+    input_type: str = "text"
 
 
 class Engine:
@@ -28,7 +30,13 @@ class Engine:
         self.store = BudgetStore(config.BUDGET_DB)
         self.nlu = Understanding(config.BUDGET_DB)
         self.logs = LogStore()
-        self.llm = self.asr = None
+        self.llm = self.asr = self.tts = None
+        if load_models and config.TTS_ENABLED:
+            try:
+                from .tts import HausaTTS
+                self.tts = HausaTTS()
+            except Exception:  # noqa: BLE001  (voice replies are optional; text keeps working)
+                log.exception("Hausa TTS failed to load; voice replies disabled")
         if load_models:
             from .llm import NATLaS
             self.llm = NATLaS()
@@ -135,6 +143,24 @@ class Engine:
     def feedback(self, interaction_id, value):
         self.logs.feedback(interaction_id, value)
 
+    def wants_voice(self, reply, user_pref=None):
+        if not self.tts or reply.lang != "ha" or not reply.text:
+            return False
+        mode = user_pref or config.VOICE_REPLY
+        return mode == "always" or (mode == "voice" and reply.input_type == "voice")
+
+    def speak(self, reply):
+        """Hausa voice note (OGG/Opus bytes) for a reply, or None. Logged on the interaction."""
+        from .speak import to_speech
+        t0 = time.time()
+        try:
+            audio = self.tts.speak(to_speech(reply.text))
+        except Exception:  # noqa: BLE001
+            log.exception("TTS failed")
+            return None
+        self.logs.voice_reply(reply.interaction_id, int((time.time() - t0) * 1000))
+        return audio
+
     # ------------------------------------------------------------------ internals
     def _finish(self, channel, uid, input_type, transcript, answer, t0, rec):
         rec = dict(rec)
@@ -143,4 +169,5 @@ class Engine:
                     "asr_model": config.ASR_MODEL if input_type == "voice" else None,
                     "llm_model": (self.llm.model_id if self.llm and self.llm.enabled else None)})
         iid = self.logs.add(rec)
-        return Reply(answer, iid, transcript if input_type == "voice" else None)
+        return Reply(answer, iid, transcript if input_type == "voice" else None, lang=rec.get("lang") or "ha",
+                     input_type=input_type)

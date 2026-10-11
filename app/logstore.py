@@ -30,6 +30,10 @@ class LogStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.con = sqlite3.connect(str(path), check_same_thread=False)
         self.con.execute(SCHEMA)
+        cols = {r[1] for r in self.con.execute("PRAGMA table_info(interactions)")}
+        for c, t in (("voice_reply", "INTEGER"), ("ms_tts", "INTEGER")):
+            if c not in cols:
+                self.con.execute(f"ALTER TABLE interactions ADD COLUMN {c} {t}")
         self.con.commit()
         self._lock = threading.Lock()
 
@@ -50,6 +54,11 @@ class LogStore:
         with self._lock:
             self.con.execute("UPDATE interactions SET feedback=?, feedback_ts=? WHERE id=?",
                              (value, datetime.now(timezone.utc).isoformat(timespec="seconds"), interaction_id))
+            self.con.commit()
+
+    def voice_reply(self, interaction_id, ms):
+        with self._lock:
+            self.con.execute("UPDATE interactions SET voice_reply=1, ms_tts=? WHERE id=?", (ms, interaction_id))
             self.con.commit()
 
     def last_for_user(self, uhash):
