@@ -136,7 +136,9 @@ def claim_checks():
         print("FAIL claim: ASR variant 'shi gaba' (ci gaba) not routed to project status"); fails += 1
     # "nawa" before the verb is "how much", not "how many": money questions about works/projects stay money answers
     routing = [("Nawa aka ware wa ayyukan ilimi a 2026?", "mda"), ("Ma'aikatar ayyuka nawa aka ware mata?", "mda"),
-               ("Nawa aka ware wa ayyukan lafiya?", "mda"), ("Ayyuka nawa ne a Tambuwal?", "project_status")]
+               ("Nawa aka ware wa ayyukan lafiya?", "mda"), ("Ayyuka nawa ne a Tambuwal?", "project_status"),
+               # "state finances" is the whole budget, not the Ministry of Finance ("Finance" alone still is the ministry)
+               ("How are the state finances in 2026?", "overview"), ("How much is allocated to Finance in 2026", "mda")]
     for q, want in routing:
         got = e.nlu.parse(q).intent
         if got != want:

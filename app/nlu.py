@@ -106,7 +106,8 @@ PROJECT_KEYWORDS = {
 WHAT_DONE = ["me ake", "me za a", "me aka", "mene ne ake", "wadanne", "wanne aiki", "wane aiki", "wane ayyuka",
              "what projects", "which projects", "what is being done", "what will be done", "ayyukan da"]
 TOTAL_RE = (r"jimilla|gaba daya|baki daya|duka kasafi|dukkan kasafi|total budget|whole budget|overall|"
-            r"kasafin (kudin )?jiha|state budget|budget of sokoto|sokoto (state )?budget|size of the budget|girman kasafi")
+            r"kasafin (kudin )?jiha|state budget|budget of sokoto|sokoto (state )?budget|size of the budget|girman kasafi|"
+            r"state'?s? finances|finances of (the )?(sokoto|state)|\bfinances\b")
 STATUS_WORDS = ["an fara", "aka fara", "fara a", "ba a kammala", "ba a gama", "ba a kare", "ba su kare", "ba su kammala",
                 "bakari", "ba kari", "ci gaba", "cigaba", "shi gaba", "chi gaba", "ci-gaba", "progress", "ongoing", "continuing", "carried over", "carry over", "uncompleted",
                 "incomplete", "not completed", "not finished", "abandoned", "watsi", "ba a fara", "sabbin ayyuka",
@@ -399,6 +400,9 @@ class Understanding:
         p.mda_codes = self.match_mdas(both)
         if p.measure == "revenue" and p.mda_codes and not self.match_mdas(t):
             p.mda_codes = []   # "kudaden shiga na cikin gida" -> N-ATLaS 'internal revenue' -> not the Board of Internal Revenue
+        if re.search(r"\bfinances\b", t) and not re.search(r"ministry|ma'aikata", t):
+            # "how are the state finances?" is the whole budget, not the Ministry of Finance's own allocation
+            p.mda_codes = [c for c in p.mda_codes if not c.startswith("0220")]
         p.lga_codes = self.match_lgas(both)
         p.function_codes = self.match_functions(both)
         terms = []
