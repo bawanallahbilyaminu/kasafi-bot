@@ -4,6 +4,11 @@ __pycache__/
 data/db/interactions.sqlite
 evidence/
 data/media/
+node_modules/
+web/client/dist/
+web/client/.env
+web/server/.env
+web/server/data/
 
 # local voice recordings (user data)
 test-voice.ogg

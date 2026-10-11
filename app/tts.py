@@ -25,15 +25,22 @@ def _ffmpeg():
         return shutil.which("ffmpeg")
 
 
-def to_ogg_opus(audio: np.ndarray, sr: int) -> bytes:
+ENCODE = {"ogg": ["-c:a", "libopus", "-b:a", "32k", "-application", "voip", "-f", "ogg"],   # Telegram/WhatsApp voice note
+          "mp3": ["-c:a", "libmp3lame", "-b:a", "48k", "-f", "mp3"]}                       # plays in every browser
+
+
+def encode(audio: np.ndarray, sr: int, fmt="ogg") -> bytes:
     ff = _ffmpeg()
     if not ff:
         raise RuntimeError("ffmpeg not found")
     pcm = (np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes()
     out = subprocess.run([ff, "-nostdin", "-loglevel", "error", "-f", "s16le", "-ar", str(sr), "-ac", "1", "-i", "-",
-                          "-c:a", "libopus", "-b:a", "32k", "-application", "voip", "-f", "ogg", "-"],
-                         input=pcm, capture_output=True, check=True)
+                          *ENCODE[fmt], "-"], input=pcm, capture_output=True, check=True)
     return out.stdout
+
+
+def to_ogg_opus(audio: np.ndarray, sr: int) -> bytes:
+    return encode(audio, sr, "ogg")
 
 
 class HausaTTS:
@@ -60,8 +67,8 @@ class HausaTTS:
             wav = self.model(**inputs).waveform[0].float().cpu().numpy()
         return wav
 
-    def speak(self, text: str) -> bytes:
-        """Hausa text (already verbalised) -> OGG/Opus voice note."""
+    def speak(self, text: str, fmt="ogg") -> bytes:
+        """Hausa text (already verbalised) -> OGG/Opus voice note (or mp3 for browsers)."""
         import re
         # The model's alphabet has no punctuation, so pauses are made here: one phrase per comma / full stop.
         phrases = [p.strip() for p in re.split(r"(?<=[.,;!?])\s+", text) if p.strip()]
@@ -80,4 +87,4 @@ class HausaTTS:
                 if not words:
                     continue
                 parts += [self._synth(words), pause["long" if ph.endswith((".", "?", "!")) else "short"]]
-        return to_ogg_opus(np.concatenate(parts), self.sr)
+        return encode(np.concatenate(parts), self.sr, fmt)

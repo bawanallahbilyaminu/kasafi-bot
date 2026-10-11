@@ -21,11 +21,13 @@ from . import config
 from .answer import HELP_HA
 from .engine import Engine
 from .logstore import user_hash
+from . import web_api
 
 logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s %(message)s", level=logging.INFO)
 log = logging.getLogger("natlas.whatsapp")
 
-app = FastAPI(title="Kasafi Bot – WhatsApp")
+app = FastAPI(title="Kasafi Bot – WhatsApp + web API")
+app.include_router(web_api.router)
 ENGINE = None
 TWILIO = None
 EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
@@ -37,11 +39,14 @@ NEGATIVE = {"👎", "0", "a'a", "no", "bai taimaka ba"}
 @app.on_event("startup")
 def _startup():
     global ENGINE, TWILIO
-    if not (config.TWILIO_ACCOUNT_SID and config.TWILIO_AUTH_TOKEN):
-        raise RuntimeError("Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in .env")
-    TWILIO = Client(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN)
+    if config.TWILIO_ACCOUNT_SID and config.TWILIO_AUTH_TOKEN:
+        TWILIO = Client(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN)
+    else:
+        log.warning("TWILIO_* not set: WhatsApp webhook disabled (web API still works)")
     if ENGINE is None:  # run_all.py injects a shared engine
         ENGINE = Engine()
+    if web_api.ENGINE is None:
+        web_api.ENGINE = ENGINE
 
 
 def send(to, text):
@@ -110,6 +115,8 @@ def handle(sender, text, media, media_type):
 @app.post("/whatsapp")
 def whatsapp(From: str = Form(...), Body: str = Form(""), NumMedia: int = Form(0),
              MediaUrl0: str = Form(None), MediaContentType0: str = Form(None)):
+    if TWILIO is None:
+        raise HTTPException(503, "WhatsApp is not configured")
     text = (Body or "").strip()
     low = text.lower()
     media = MediaUrl0 if NumMedia and (MediaContentType0 or "").startswith("audio") else None

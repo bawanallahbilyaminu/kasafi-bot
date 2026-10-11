@@ -8,7 +8,7 @@ import logging
 import threading
 
 from . import config
-from . import telegram_bot, whatsapp_twilio
+from . import telegram_bot, web_api, whatsapp_twilio
 from .engine import Engine
 
 log = logging.getLogger("natlas.run_all")
@@ -22,14 +22,19 @@ def main():
     engine = Engine()
     telegram_bot.ENGINE = engine
     whatsapp_twilio.ENGINE = engine
-    if not args.no_whatsapp and config.TWILIO_ACCOUNT_SID:
+    web_api.ENGINE = engine
+    serve_http = config.ENGINE_API_KEY or (not args.no_whatsapp and config.TWILIO_ACCOUNT_SID)
+    if serve_http:
         import uvicorn
         t = threading.Thread(target=uvicorn.run, args=(whatsapp_twilio.app,),
                              kwargs={"host": "0.0.0.0", "port": args.port, "log_level": "info"}, daemon=True)
         t.start()
-        log.info("WhatsApp webhook listening on http://localhost:%d/whatsapp", args.port)
+        if config.TWILIO_ACCOUNT_SID:
+            log.info("WhatsApp webhook listening on http://localhost:%d/whatsapp", args.port)
+        if config.ENGINE_API_KEY:
+            log.info("Web app API listening on http://localhost:%d/api", args.port)
     elif not args.no_whatsapp:
-        log.warning("TWILIO_* not set: WhatsApp disabled")
+        log.warning("TWILIO_* and ENGINE_API_KEY not set: no HTTP server (WhatsApp / web app disabled)")
     telegram_bot.run(engine)
 
 

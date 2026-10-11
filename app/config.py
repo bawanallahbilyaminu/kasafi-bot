@@ -71,3 +71,7 @@ ATTRIBUTION = ("N-ATLaS and Hausa-ASR are powered by Awarri Technologies in an i
 REQUIRE_REGISTRATION = env("REQUIRE_REGISTRATION", "1") == "1"
 # Telegram ids allowed to use /stats, /recent, /bad (send /myid to the bot to see yours). Comma-separated.
 ADMIN_TELEGRAM_IDS = {int(x) for x in env("ADMIN_TELEGRAM_IDS", "").replace(" ", "").split(",") if x.isdigit()}
+
+# --- Web app ---
+# Shared secret between the web app's server (web/server) and this engine's /api routes. Empty = /api disabled.
+ENGINE_API_KEY = env("ENGINE_API_KEY", "")

@@ -1,0 +1,19 @@
+{
+  "name": "kasafi-web-server",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Kasafi web app server: Clerk auth, chat history, proxy to the Kasafi engine (N-ATLaS + Hausa-ASR)",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env src/index.js",
+    "start": "node --env-file-if-exists=.env src/index.js"
+  },
+  "dependencies": {
+    "@clerk/express": "latest",
+    "better-sqlite3": "latest",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "multer": "^2.0.0"
+  }
+}

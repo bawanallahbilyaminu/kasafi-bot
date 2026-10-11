@@ -165,12 +165,12 @@ class Engine:
         mode = user_pref or config.VOICE_REPLY
         return mode == "always" or (mode == "voice" and reply.input_type == "voice")
 
-    def speak(self, reply):
+    def speak(self, reply, fmt="ogg"):
         """Hausa voice note (OGG/Opus bytes) for a reply, or None. Logged on the interaction."""
         from .speak import to_speech
         t0 = time.time()
         try:
-            audio = self.tts.speak(to_speech(reply.text))
+            audio = self.tts.speak(to_speech(reply.text), fmt=fmt)
         except Exception:  # noqa: BLE001
             log.exception("TTS failed")
             return None

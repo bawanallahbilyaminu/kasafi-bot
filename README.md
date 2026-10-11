@@ -105,6 +105,10 @@ answer.
 
    Trial accounts are capped at 50 messages a day, so add credit to lift the cap. Testers must re-join every 3 days.
 
+## 2b. Web app
+A web version with sign-in (Google), chat history and voice is in `web/` (React + Express + Clerk). It calls this
+engine's `/api` routes; see `web/README.md`.
+
 ## 3. Collect real-world validation (NAIC requires at least 50 interactions)
 
 Every question is logged in `data/db/interactions.sqlite`. The log stores the time, channel, a salted hash of the
