@@ -398,6 +398,8 @@ class Understanding:
 
         # "manyan ayyuka" / "capital projects" name the capital budget, not a list of projects
         t_proj = re.sub(r"manyan ayyuka|capital projects?( budget)?|capital budget", " ", both)
+        # counting phrases only from the user's own words, not N-ATLaS's translation ("will be carried out")
+        t_proj_user = re.sub(r"manyan ayyuka|capital projects?( budget)?|capital budget", " ", t)
         mentions_projects = any(has_word(t_proj, w) for w in PROJECT_NOUNS)
         is_project = is_project and any(has_word(t_proj, w) for w in PROJECT_WORDS)
         # an LGA name inside a matched agency's name ("College of Agriculture Wurno") is not an LGA question
@@ -433,8 +435,8 @@ class Understanding:
                 len(p.years) >= 2 or not p.rank_order):
             p.intent = p.analysis = "project_status"
         elif (mentions_projects and not p.project_terms and not p.rank_order
-              and (any(has_word(t_proj, w) for w in COUNT_WORDS)
-                   or (SOFT_COUNT_RE.search(t_proj) and not any(has_word(both, w) for w in MONEY_WORDS)))):
+              and (any(has_word(t_proj_user, w) for w in COUNT_WORDS)
+                   or (SOFT_COUNT_RE.search(t_proj_user) and not any(has_word(both, w) for w in MONEY_WORDS)))):
             # "how many projects (were done) for IDPs / in health / in Tambuwal": count + status, scoped
             p.intent = p.analysis = "project_status"
         elif p.rank_order and not (p.rank_unit == "ministry" and p.mda_codes and not p.function_codes and

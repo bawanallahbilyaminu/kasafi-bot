@@ -166,6 +166,9 @@ def natlas_replay_checks():
          "Kudaden shigar jiha", False),
         ("Wadanne ayyuka ne za a yi a Wamakko?", {"english": "What projects will be carried out in Wamakko?", "topic": "Wamakko",
          "wants": "project_status"}, "", "Karamar Hukumar Wamakko", False),
+        ("Nawa aka ware wa kariyar zamantakewa a 2026?", {"english": "How much was allocated to social protection in 2026?",
+         "topic": "social protection", "wants": "allocation", "year": 2026},
+         "An ware ₦34.37 biliyan don kariyar zamantakewa a 2026, ciki har da manyan ayyuka ₦13.88 biliyan.", "₦34.37", True),
     ]
     for q, und, draft, must, natlas in cases:
         e.llm = Fake(und, draft)

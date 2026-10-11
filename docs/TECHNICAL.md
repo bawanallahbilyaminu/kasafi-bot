@@ -196,7 +196,9 @@ no budget figures for out-of-scope questions.
 53 budget answers (87%), the rest fell back to verified figures after a check; median 4.8 s per question
 (`bench/report_llm_sample60_before.md`). Its two wrong-but-accepted answers (a different real figure for Fadama;
 IGR read as the Internal Revenue Board's budget) led to the "must state the requested figure" check and the
-revenue routing fix, both now covered by replay tests in `tests/test_questions.py`.
+revenue routing fix, both now covered by replay tests in `tests/test_questions.py`. Re-run after those fixes:
+**59/60 (98%)**, median 4.9 s (`bench/report_llm_sample60_after.md`); the remaining case (an N-ATLaS translation
+turning "what projects are in Wamakko" into a project-status question) is fixed and covered by a replay test.
 
 The first-run held-out scores (88–91%) are the honest estimate for unseen questions with the rules alone; in the
 live system N-ATLaS's translation and topic hints are added before routing. `python bench/run_benchmark.py --llm`

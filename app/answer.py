@@ -281,7 +281,7 @@ def capital_ok(draft, ret):
             since_prev = clause[prev_end:m.start()]       # words between the previous figure (or clause start) and this one
             prev_end = m.end()
             near = clause[max(0, m.start() - 30):m.start()] + " " + clause[m.end():m.end() + 40]
-            near = re.sub(r"₦\s?\d[\d,]*(?:\.\d+)?.*", "", clause[m.end():m.end() + 40])  # stop at the next figure
+            near = re.sub(r"₦\s?\d[\d,]*(?:\.\d+)?.*", "", clause[m.end():m.end() + 26])  # "₦X billion on capital projects"
             near = clause[max(0, m.start() - 30):m.start()] + " " + near
             if CAPITAL_CTX.search(near) and n in other and n not in cap:
                 return False, f"₦{n} presented as capital but it is a total/recurrent figure"
