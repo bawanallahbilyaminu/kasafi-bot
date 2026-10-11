@@ -61,12 +61,20 @@ def citation(ret, lang):
     for i in ret.items:
         if i.get("page"):
             by.setdefault("budget2026", set()).add(i["page"])
+        if i.get("q4_page") and i.get("spent_full"):
+            by.setdefault("2025Q4", set()).add(i["q4_page"])
     if not by:
         return ""
     word = "shafi" if lang == "ha" else "page"
     parts = [f"{_doc(src, lang)}, {word} {', '.join(str(x) for x in sorted(pg)[:6])}"
              for src, pg in sorted(by.items(), key=lambda kv: kv[0] != "budget2026")]
     return ("📄 Madogara: " if lang == "ha" else "📄 Source: ") + "; ".join(parts)
+
+
+def _spent_label(i, lang):
+    if i.get("spent_full"):
+        return "an kashe (duk shekarar 2025)" if lang == "ha" else "spent (full year 2025)"
+    return "an kashe (Jan-Sat)" if lang == "ha" else "spent (Jan-Sep)"
 
 
 def facts_block(ret, lang):
@@ -87,7 +95,7 @@ def facts_block(ret, lang):
             lines.append(f"- {'Hukuma' if lang == 'ha' else 'Agency'} ({b26}): {i['name']} — {naira(i['amount'], lang)}")
         elif i["type"] == "status_project":
             lines.append(f"- {i['group_en'] if lang == 'en' else i['group_ha']} {i['name']} — 2025: {naira(i['budget_2025'], lang)}, "
-                         f"{'an kashe' if lang == 'ha' else 'spent'}: {naira(i['spent_2025'], lang)}, 2026: {naira(i['amount'], lang)}")
+                         f"{_spent_label(i, lang)}: {naira(i['spent_2025'], lang)}, 2026: {naira(i['amount'], lang)}")
         elif i["type"] == "category":
             part = "wani bangare kawai, kudin da aka WARE (ba abin da aka kashe ba)" if lang == "ha" else \
                 "one part only, money ALLOCATED (not spent)"
@@ -126,12 +134,8 @@ def items_block(ret, lang):
                 out.append("")
             out.append(g)
             group = g
-        if lang == "ha":
-            out.append(f"• {i['name'][:100]} — 2025: {naira(i['budget_2025'], lang)}, an kashe: {naira(i['spent_2025'], lang)}, "
-                       f"2026: {naira(i['amount'], lang)}")
-        else:
-            out.append(f"• {i['name'][:100]} — 2025: {naira(i['budget_2025'], lang)}, spent: {naira(i['spent_2025'], lang)}, "
-                       f"2026: {naira(i['amount'], lang)}")
+        out.append(f"• {i['name'][:100]} — 2025: {naira(i['budget_2025'], lang)}, {_spent_label(i, lang)}: "
+                   f"{naira(i['spent_2025'], lang)}, 2026: {naira(i['amount'], lang)}")
     agencies = [i for i in ret.items if i["type"] == "agency"]
     projects = [i for i in ret.items if i["type"] == "project"]
     if agencies:
@@ -151,10 +155,14 @@ def items_block(ret, lang):
 
 def notes_block(ret, lang):
     if ret.note == "jan_sep":
-        return ("Lura: abin da aka kashe a 2025 na watan Janairu zuwa Satumba ne kawai (daga kasafin 2026); "
-                "kudin da aka kashe a Oktoba-Disamba ba ya ciki." if lang == "ha" else
-                "Note: 2025 spending covers January-September only (as published in the 2026 budget); "
-                "October-December spending is not included.")
+        status = [i for i in ret.items if i["type"] == "status_project"]
+        if status and all(i.get("spent_full") for i in status):
+            return ""
+        return ("Lura: abin da aka kashe wa kowane aiki a 2025 na Janairu-Satumba ne, domin rahoton Q4 bai lissafa ayyuka daya-daya "
+                "ba sai na kiwon lafiya matakin farko da ilimin firamare (wadannan na duk shekara ne). Jimillar ma'aikatu kuwa ta duk shekarar 2025 ce."
+                if lang == "ha" else
+                "Note: per-project 2025 spending is for January-September, because the Q4 report lists projects one by one only "
+                "for primary health care and basic education (those show the full year). Ministry totals are for the full year 2025.")
     if ret.note == "statewide":
         return ("Lura: ayyuka da yawa an tsara su a matsayin 'State Wide' (na duk jiha), su ma suna iya shafar wannan karamar hukuma."
                 if lang == "ha" else "Note: many projects are budgeted 'State Wide' and may also benefit this LGA.")

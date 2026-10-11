@@ -179,7 +179,7 @@ def natlas_replay_checks():
          "and no money has been spent yet according to the latest performance report.", "₦7.89", False),
         (PHC_Q, {"english": PHC_Q, "wants": "spending", "year": 2025},
          "No PHC renovation project is tagged to Sokoto South LGA. State-wide, ₦7.89 billion was budgeted in 2025 to renovate 244 "
-         "ward-level health facilities, and ₦42.41 million of it was spent by September 2025.", "₦42.41", True),
+         "ward-level health facilities, and ₦427.17 million of it was spent in the full year 2025.", "₦427.17", True),
     ]
     for q, und, draft, must, natlas in cases:
         e.llm = Fake(und, draft)

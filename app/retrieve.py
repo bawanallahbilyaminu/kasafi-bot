@@ -90,6 +90,32 @@ class BudgetStore:
         self.full_2025 = rep(2025)     # e.g. 2025Q4 (full year)
         self.latest_2026 = rep(2026)   # e.g. 2026Q2 (Jan-Jun)
         self._has_b25 = bool(self.con.execute("SELECT name FROM sqlite_master WHERE name='line_items_2025'").fetchone())
+        self.full_proj = self._full_year_projects()
+
+    def _full_year_projects(self):
+        """{project id: (full-year 2025 spending, page)} for projects the Q4 report lists one by one (primary health
+        care and basic education only). Matched on agency + name, or agency + similar name + identical 2025 budget."""
+        import difflib
+        if not self.full_2025 or not self.con.execute("SELECT name FROM sqlite_master WHERE name='perf_projects'").fetchone():
+            return {}
+        key = lambda t: re.sub(r"[^a-z0-9]", "", (t or "").lower())[:40]
+        out = {}
+        for q in self.con.execute("SELECT * FROM perf_projects WHERE report=?", (self.full_2025,)).fetchall():
+            cands = self.con.execute("SELECT id, project, revised_2025 FROM projects WHERE mda_code=?", (q["mda_code"],)).fetchall()
+            best = next((c for c in cands if key(c["project"]) == key(q["project"])), None)
+            if not best:
+                scored = [(difflib.SequenceMatcher(None, key(c["project"]) * 2, key(q["project"]) * 2).ratio(), c) for c in cands
+                          if c["revised_2025"] is not None and abs(c["revised_2025"] - (q["budget_final"] or 0)) < 1]
+                scored = [x for x in scored if x[0] >= 0.6]
+                best = max(scored, key=lambda x: x[0])[1] if scored else None
+            if best and best["id"] not in out:
+                out[best["id"]] = (q["ytd_actual"], q["source_page"])
+        return out
+
+    def _spent25(self, x):
+        """(2025 spending, is full year, Q4 page) for a project row."""
+        full = self.full_proj.get(x["id"])
+        return (full[0], True, full[1]) if full else (x["perf_2025_jan_sep"], False, None)
 
     def b25(self, kind, measure, code):
         """Row from the 2025 approved budget (original 2025 figures, 2023 actuals)."""
@@ -396,8 +422,9 @@ class BudgetStore:
         return r
 
     def _proj_item(self, x, gha, gen):
+        sp, full, qpage = self._spent25(x)
         return {"type": "status_project", "name": x["project"], "amount": x["approved_2026"], "budget_2025": x["revised_2025"],
-                "spent_2025": x["perf_2025_jan_sep"], "lga": x["location_name"], "page": x["source_page"],
+                "spent_2025": sp, "spent_full": full, "q4_page": qpage, "lga": x["location_name"], "page": x["source_page"],
                 "group_ha": gha, "group_en": gen}
 
     def ranking(self, p):
@@ -646,9 +673,10 @@ class BudgetStore:
                                     " ORDER BY approved_2026 DESC LIMIT ?", [*args, limit]).fetchall()
         out = []
         for x in rows:
+            sp, full, qpage = self._spent25(x)
             out.append({"type": "project", "name": x["project"], "amount": x["approved_2026"], "lga": x["location_name"],
-                        "mda": x["mda_name"], "spent_2025": x["perf_2025_jan_sep"], "budget_2025": x["revised_2025"],
-                        "page": x["source_page"]})
+                        "mda": x["mda_name"], "spent_2025": sp, "spent_full": full, "q4_page": qpage,
+                        "budget_2025": x["revised_2025"], "page": x["source_page"]})
         return out
 
     def retrieve(self, p):

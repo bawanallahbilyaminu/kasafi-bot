@@ -137,6 +137,8 @@ python -I pipeline\validate.py       data\db\budget.sqlite --year 2025 --table l
 :: quarterly implementation reports (add new ones as they are published)
 python -I pipeline\parse_reports.py   data\db\budget.sqlite data\raw\perf2025q2.pdf data\raw\perf2025q3.pdf data\raw\perf2025q4.pdf data\raw\perf2026q2.pdf
 python -I pipeline\validate_reports.py data\db\budget.sqlite
+:: per-project spending tables (all projects in Q2/Q3; PHC and basic education only in Q4); prints a reconciliation
+python -I pipeline\parse_report_projects.py data\db\budget.sqlite data\raw\perf2025q4.pdf data\raw\perf2025q3.pdf data\raw\perf2025q2.pdf data\raw\perf2026q2.pdf
 ```
 
 ## Project layout

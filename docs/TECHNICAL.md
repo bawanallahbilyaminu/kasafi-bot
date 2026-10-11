@@ -119,6 +119,14 @@ administrative, economic, functional and programme line it records the original 
 quarter's spending, year-to-date spending, % performance and balance. Q1 reports are kept as source documents;
 their year-to-date figures are contained in Q2.
 
+**Per-project spending** (`pipeline/parse_report_projects.py` → `perf_projects`). The Q2 and Q3 2025 reports list every
+capital project with its spending (about 1,170 rows each); the Q4 2025 report lists projects one by one only for primary
+health care, SUBEB and nomadic education (36 rows). Each agency's project rows are summed and compared with its capital
+spending in `perf_items`: they agree to the kobo for every agency in Q4 and for all but 2 agencies in Q2/Q3 (rows the
+PDF splits badly; those are not used). Answers show **full-year 2025** spending for the projects listed in Q4
+("spent (full year 2025)") and January–September for all others ("spent (Jan-Sep)"), with a note saying why. Ministry
+and agency totals are always full year (from `perf_items`).
+
 `pipeline/validate_reports.py`: **4,567 checks, all passing**
 - MDAs → ministries → sectors → total, for total, personnel, overhead, other and capital, in every report
 - personnel + overhead + other + capital = total for every MDA

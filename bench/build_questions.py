@@ -260,7 +260,8 @@ add("complex", 4, "en", "How much money from the 2025 state budget is specifical
     "Sokoto South LGA, and according to the latest performance report, has any of that money actually been spent yet?",
     ["lga"], lga="33311700", figures=fig(proj("Investment Funds i.e for renovations of 244%", "revised_2025")))
 add("complex", 4, "ha", "Nawa aka ware wa gyaran cibiyoyin lafiya a Sokoto ta Kudu a 2025, kuma an kashe wani abu?",
-    ["lga"], lga="33311700", figures=fig(proj("Investment Funds i.e for renovations of 244%", "perf_2025_jan_sep")))
+    ["lga"], lga="33311700", figures=fig(con.execute("SELECT ytd_actual FROM perf_projects WHERE report='2025Q4' AND project LIKE "
+                                                     "'Investment Funds i.e for renovations of 244%'").fetchone()[0]))   # full year (Q4)
 add("complex", 4, "en", "In the 2025 Sokoto State approved budget, how does the initial capital expenditure allocation for the Ministry of "
     "Agriculture compare to the actual funds released by the end of Q2, and what specific percentage of that variance impacted the "
     "fertilizer subsidy programs for dry-season farmers in the Goronyo and Wamakko LGAs?",
