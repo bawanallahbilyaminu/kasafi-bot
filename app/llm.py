@@ -24,7 +24,10 @@ UNDERSTAND_SYSTEM = (
     "Read the user's message (it may be Hausa, English or Nigerian Pidgin) and reply with ONLY a JSON object:\n"
     '{"language": "ha|en|pcm", "english": "<faithful English translation of the question>", '
     '"topic": "<ministry, sector, LGA or project the question is about, in English, or empty>", '
-    '"wants": "allocation|spending|projects|revenue|overview|greeting|other", "year": <year or null>}'
+    '"wants": "allocation|spending|projects|project_status|ranking|comparison|revenue|overview|greeting|other", '
+    '"year": <year or null>}\n'
+    "project_status = which projects started, continued, stalled, are new or were dropped between years; "
+    "ranking = which ministry/LGA/project got the most or least; comparison = change between years."
 )
 UNDERSTAND_SHOTS = [
     ("Nawa aka ware wa ma'aikatar lafiya a kasafin 2026?",
@@ -33,6 +36,12 @@ UNDERSTAND_SHOTS = [
     ("Wadanne ayyuka ne za a yi a karamar hukumar Tambuwal?",
      '{"language": "ha", "english": "What projects will be carried out in Tambuwal Local Government?", '
      '"topic": "Tambuwal", "wants": "projects", "year": null}'),
+    ("Ayyuka nawa aka fara a 2025 amma ba a kammala ba, har yanzu suna cikin kasafin 2026?",
+     '{"language": "ha", "english": "How many projects started in 2025 were not completed and are still in the 2026 budget?", '
+     '"topic": "", "wants": "project_status", "year": null}'),
+    ("Wace ma'aikata ce ta fi samun kudi a bana?",
+     '{"language": "ha", "english": "Which ministry received the most money this year?", '
+     '"topic": "", "wants": "ranking", "year": 2026}'),
     ("Shin nawa ne aka kashe a fannin ilimi a bara?",
      '{"language": "ha", "english": "How much was spent on education last year?", '
      '"topic": "education", "wants": "spending", "year": 2025}'),

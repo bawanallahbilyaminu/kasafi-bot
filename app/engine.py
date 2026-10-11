@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 
 from . import config
-from .answer import HELP_EN, HELP_HA, citation, facts_block, grounded, items_block, template_answer
+from .answer import HELP_EN, HELP_HA, citation, facts_block, grounded, items_block, notes_block, template_answer
 from .logstore import LogStore, user_hash
 from .nlu import Understanding
 from .retrieve import BudgetStore
@@ -75,6 +75,15 @@ class Engine:
             p.lang = "en"
         if und.get("wants") == "spending":
             p.performance = True
+        if und.get("wants") == "comparison":
+            p.compare = True
+        if und.get("wants") == "project_status" and p.intent not in ("project_status", "greeting"):
+            p.intent = p.analysis = "project_status"
+        if und.get("wants") == "ranking" and p.intent not in ("ranking", "greeting", "project_status"):
+            p.intent = p.analysis = "ranking"
+            p.rank_order = p.rank_order or "top"
+            p.rank_metric = p.rank_metric or ("implementation" if p.performance else "allocation")
+            p.rank_unit = p.rank_unit or ("lga" if p.lga_codes == [] and "lga" in english.lower() else "ministry")
         if und.get("year") and not p.years:
             try:
                 p.years = [int(und["year"])]
@@ -105,6 +114,8 @@ class Engine:
                     # keep the full figures list under the prose so citizens can check them
                     if ret.items:
                         answer += "\n\n" + items_block(ret, lang)
+                    if notes_block(ret, lang):
+                        answer += "\n\n" + notes_block(ret, lang)
                 else:
                     fail = f"ungrounded number: {bad}"
             except Exception as e:  # noqa: BLE001

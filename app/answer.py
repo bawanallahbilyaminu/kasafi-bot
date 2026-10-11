@@ -46,6 +46,9 @@ def facts_block(ret, lang):
             lines.append(f"- {'Aiki' if lang == 'ha' else 'Project'}: {i['name']}{extra} — {naira(i['amount'], lang)}")
         elif i["type"] == "agency":
             lines.append(f"- {'Hukuma' if lang == 'ha' else 'Agency'}: {i['name']} — {naira(i['amount'], lang)}")
+        elif i["type"] == "status_project":
+            lines.append(f"- {i['group_en'] if lang == 'en' else i['group_ha']} {i['name']} — 2025: {naira(i['budget_2025'], lang)}, "
+                         f"{'an kashe' if lang == 'ha' else 'spent'}: {naira(i['spent_2025'], lang)}, 2026: {naira(i['amount'], lang)}")
         elif i["type"] == "category":
             lines.append(f"- {'Rabe' if lang == 'ha' else 'Category'}: {i['name']} — {naira(i['amount'], lang)}")
     return "\n".join(lines)
@@ -57,6 +60,21 @@ def items_block(ret, lang):
     if cats:
         out.append("Rabe-rabensa (2026):" if lang == "ha" else "Breakdown (2026):")
         out += [f"• {i['name'] if lang == 'ha' else i.get('name_en', i['name'])}: {naira(i['amount'], lang)}" for i in cats]
+    status = [i for i in ret.items if i["type"] == "status_project"]
+    group = None
+    for i in status:
+        g = i["group_ha"] if lang == "ha" else i["group_en"]
+        if g != group:
+            if out:
+                out.append("")
+            out.append(g)
+            group = g
+        if lang == "ha":
+            out.append(f"• {i['name'][:100]} — 2025: {naira(i['budget_2025'], lang)}, an kashe: {naira(i['spent_2025'], lang)}, "
+                       f"2026: {naira(i['amount'], lang)}")
+        else:
+            out.append(f"• {i['name'][:100]} — 2025: {naira(i['budget_2025'], lang)}, spent: {naira(i['spent_2025'], lang)}, "
+                       f"2026: {naira(i['amount'], lang)}")
     agencies = [i for i in ret.items if i["type"] == "agency"]
     projects = [i for i in ret.items if i["type"] == "project"]
     if agencies:
@@ -74,6 +92,18 @@ def items_block(ret, lang):
     return "\n".join(out)
 
 
+def notes_block(ret, lang):
+    if ret.note == "jan_sep":
+        return ("Lura: abin da aka kashe a 2025 na watan Janairu zuwa Satumba ne kawai (daga kasafin 2026); "
+                "kudin da aka kashe a Oktoba-Disamba ba ya ciki." if lang == "ha" else
+                "Note: 2025 spending covers January-September only (as published in the 2026 budget); "
+                "October-December spending is not included.")
+    if ret.note == "statewide":
+        return ("Lura: ayyuka da yawa an tsara su a matsayin 'State Wide' (na duk jiha), su ma suna iya shafar wannan karamar hukuma."
+                if lang == "ha" else "Note: many projects are budgeted 'State Wide' and may also benefit this LGA.")
+    return ""
+
+
 def template_answer(ret, lang):
     if not ret.facts and not ret.items:
         return NOT_FOUND_HA if lang == "ha" else NOT_FOUND_EN
@@ -83,9 +113,9 @@ def template_answer(ret, lang):
         body.append(f"• {f.text(lang)}")
     if ret.items:
         body.append("\n" + items_block(ret, lang))
-    if ret.note == "statewide":
-        body.append("\nLura: ayyuka da yawa an tsara su a matsayin 'State Wide' (na duk jiha), su ma suna iya shafar wannan karamar hukuma."
-                    if lang == "ha" else "\nNote: many projects are budgeted 'State Wide' and may also benefit this LGA.")
+    note = notes_block(ret, lang)
+    if note:
+        body.append("\n" + note)
     return (head + "\n" if head else "") + "\n".join(body)
 
 

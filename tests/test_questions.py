@@ -33,6 +33,12 @@ CASES = [  # question, expected text in the answer
     ("Nawa aka ware wa 'yan fansho?", "₦10.27 biliyan"),
     ("Menene kasafin 2026?", "₦758.7 biliyan"),
     ("nawa aka ware wa wani abu da ba a sani ba?", "Yi hakuri"),
+    ("ayyuka, wanda ke karkashin ma'aikatan lafiyar, guda nawa ne aka fara a 2025 bakari su ba'ar 2026.", ": 97"),
+    ("How many projects started in 2025 are still ongoing in 2026?", "continuing in 2026: 811"),
+    ("Wace ma'aikata ce ta fi samun kudi a kasafin 2026?", "1. Ministry of Health"),
+    ("Which ministries had the lowest capital implementation in 2025?", "1. State Judiciary"),
+    ("Wace karamar hukuma ce ta fi samun kudi?", "1. Wamakko"),
+    ("Kasafin lafiya ya karu idan aka kwatanta da 2025?", "kashi 168.6"),
 ]
 
 

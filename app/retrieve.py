@@ -40,9 +40,13 @@ class Fact:
     label_en: str
     page: int
     is_pct: bool = False
+    is_count: bool = False
 
     def text(self, lang):
-        v = pct_str(self.value, lang) if self.is_pct else naira(self.value, lang)
+        if self.is_count:
+            v = f"{int(self.value):,}"
+        else:
+            v = pct_str(self.value, lang) if self.is_pct else naira(self.value, lang)
         return f"{self.label_ha if lang == 'ha' else self.label_en}: {v}"
 
 
@@ -134,6 +138,14 @@ class BudgetStore:
                     r.add(Fact(f"{m}_pct2025", pct(row["perf_2025_jan_sep"], row["revised_2025"]),
                                f"{MEASURE_HA[m].capitalize()} — kaso da aka aiwatar",
                                f"{MEASURE_EN[m].capitalize()} — implementation rate", row["source_page"], is_pct=True))
+        if p.compare and tot["revised_2025"]:
+            ch = pct(tot["approved_2026"] - tot["revised_2025"], tot["revised_2025"])
+            if not any(f.key == "total_rev2025" for f in r.facts):
+                r.add(Fact("rev2025_cmp", tot["revised_2025"], "Kasafin 2025 (wanda aka sabunta)", "2025 revised budget", tot["source_page"]))
+            if not any(f.key == "total_2026" for f in r.facts):
+                r.add(Fact("app2026_cmp", tot["approved_2026"], "Kasafin 2026", "2026 approved budget", tot["source_page"]))
+            r.add(Fact("chg_pct", abs(ch), "Karuwa daga 2025 zuwa 2026" if ch >= 0 else "Raguwa daga 2025 zuwa 2026",
+                       "Increase from 2025 to 2026" if ch >= 0 else "Decrease from 2025 to 2026", tot["source_page"], is_pct=True))
         # for a ministry-level code, list its biggest agencies; for capital questions, top projects
         if code[4:] == "00000000":
             kids = self.con.execute("SELECT * FROM line_items WHERE kind='exp_admin' AND measure='total' AND length(code)=12 "
@@ -185,6 +197,124 @@ class BudgetStore:
                     r.items.append({"type": "category", "name": f"{ha} ({en})" if ha else en, "name_en": en,
                                     "amount": sb["approved_2026"], "page": sb["source_page"]})
         r.items += self.projects(p, function_like=code + "%", limit=4)
+        return r
+
+    # ------------------------------------------------------------------ analysis
+    def _scope(self, p):
+        where, args, ha, en = [], [], [], []
+        if p.mda_codes:
+            c = p.mda_codes[0]
+            if c[4:] == "0" * 8:
+                where.append("mda_code LIKE ?"); args.append(c[:4] + "%")
+            else:
+                where.append("mda_code = ?"); args.append(c)
+            n = self.name_of(c); ha.append(n); en.append(n)
+        elif p.function_codes:
+            fc = p.function_codes[0]
+            where.append("function_code LIKE ?"); args.append(fc + "%")
+            row = self.con.execute("SELECT name FROM line_items WHERE kind='exp_function' AND measure='total' AND code=?",
+                                   (fc,)).fetchone()
+            n = row[0].title() if row else fc
+            ha.append(FUNC_HA.get(fc, n)); en.append(n)
+        if p.lga_codes:
+            where.append("location_code = ?"); args.append(p.lga_codes[0])
+            nm = self.con.execute("SELECT location_name FROM projects WHERE location_code=? LIMIT 1", (p.lga_codes[0],)).fetchone()
+            nm = nm[0].title() if nm else p.lga_codes[0]
+            ha.append(f"Karamar Hukumar {nm}"); en.append(f"{nm} LGA")
+        return (" AND ".join(where) or "1=1"), args, (" — ".join(ha) or "Duk jiha"), (" — ".join(en) or "Whole state")
+
+    def project_status(self, p):
+        where, args, sha, sen = self._scope(p)
+        r = Retrieval("project_status", f"Matsayin ayyuka: {sha}", f"Project status: {sen}")
+        pg = self.con.execute(f"SELECT min(source_page) FROM projects WHERE {where}", args).fetchone()[0] or 49
+        one = lambda sql: self.con.execute(f"SELECT count(*), coalesce(sum(revised_2025),0), coalesce(sum(perf_2025_jan_sep),0), "
+                                           f"coalesce(sum(approved_2026),0) FROM projects WHERE {where} AND {sql}", args).fetchone()
+        allp = one("approved_2026 > 0")
+        cont = one("revised_2025 > 0 AND approved_2026 > 0")
+        started = one("perf_2025_jan_sep > 0 AND revised_2025 > 0 AND approved_2026 > 0")
+        idle = one("revised_2025 > 0 AND coalesce(perf_2025_jan_sep,0) = 0 AND approved_2026 > 0")
+        new = one("coalesce(revised_2025,0) = 0 AND approved_2026 > 0")
+        gone = one("revised_2025 > 0 AND coalesce(approved_2026,0) = 0")
+        F = lambda k, v, ha, en, **kw: r.add(Fact(k, v, ha, en, pg, **kw))
+        F("n_all", allp[0], "Ayyukan da ke cikin kasafin 2026", "Projects in the 2026 budget", is_count=True)
+        F("n_cont", cont[0], "Ayyukan da aka tsara a 2025 kuma suka ci gaba a 2026", "Projects budgeted in 2025 and continuing in 2026", is_count=True)
+        F("amt_cont", cont[3], "Kudin da aka ware wa wadannan ayyuka a 2026", "2026 allocation for these continuing projects")
+        F("n_started", started[0], "Daga cikinsu, wadanda aka fara kashe musu kudi a 2025 (Jan-Sat) kuma ba a kammala ba", "Of these, work started in 2025 (money spent Jan-Sep) and still continuing", is_count=True)
+        F("amt_started_spent", started[2], "Abin da aka kashe musu a 2025 (Jan-Sat)", "Spent on them in 2025 (Jan-Sep)")
+        F("n_idle", idle[0], "Wadanda aka ware musu kudi a 2025 amma ba a kashe ko sisi ba (Jan-Sat), aka sake sanya su a 2026", "Budgeted in 2025 but nothing spent (Jan-Sep), budgeted again in 2026", is_count=True)
+        F("amt_idle25", idle[1], "Kudin da aka ware musu a 2025 ba tare da an kashe ba", "Their 2025 budget, unspent")
+        F("n_new", new[0], "Sababbin ayyuka a 2026 (babu su a 2025)", "New projects in 2026 (not in the 2025 budget)", is_count=True)
+        F("amt_new", new[3], "Kudin sababbin ayyuka a 2026", "2026 allocation for new projects")
+        F("n_gone", gone[0], "Ayyukan 2025 da ba su cikin kasafin 2026 (an kammala ko an daina)", "2025 projects not in the 2026 budget (completed or dropped)", is_count=True)
+        ex = self.con.execute(f"SELECT * FROM projects WHERE {where} AND perf_2025_jan_sep > 0 AND revised_2025 > 0 AND approved_2026 > 0 "
+                              "ORDER BY approved_2026 DESC LIMIT 3", args).fetchall()
+        for x in ex:
+            r.items.append(self._proj_item(x, "An fara a 2025, ana ci gaba a 2026:", "Started in 2025, continuing in 2026:"))
+        ex = self.con.execute(f"SELECT * FROM projects WHERE {where} AND revised_2025 > 0 AND coalesce(perf_2025_jan_sep,0) = 0 AND approved_2026 > 0 "
+                              "ORDER BY revised_2025 DESC LIMIT 3", args).fetchall()
+        for x in ex:
+            r.items.append(self._proj_item(x, "An ware kudi a 2025 amma ba a kashe ba:", "Budgeted in 2025 but nothing spent:"))
+        r.note = "jan_sep"
+        return r
+
+    def _proj_item(self, x, gha, gen):
+        return {"type": "status_project", "name": x["project"], "amount": x["approved_2026"], "budget_2025": x["revised_2025"],
+                "spent_2025": x["perf_2025_jan_sep"], "lga": x["location_name"], "page": x["source_page"],
+                "group_ha": gha, "group_en": gen}
+
+    def ranking(self, p):
+        order = "ASC" if p.rank_order == "bottom" else "DESC"
+        top_ha = "mafi karanci" if order == "ASC" else "mafi yawa"
+        top_en = "lowest" if order == "ASC" else "highest"
+        if p.rank_unit == "lga":
+            rows = self.con.execute(f"SELECT name, approved_2026 v, source_page FROM line_items WHERE kind='exp_location' AND "
+                                    f"measure='total' AND length(code)=8 AND code!='33342400' ORDER BY approved_2026 {order} LIMIT 5").fetchall()
+            r = Retrieval("ranking", f"Kananan hukumomi da suka fi samun kudi kai tsaye a 2026 ({top_ha})",
+                          f"LGAs by budget located there in 2026 ({top_en})")
+            for i, x in enumerate(rows, 1):
+                r.add(Fact(f"rank{i}", x["v"], f"{i}. {x['name'].title()}", f"{i}. {x['name'].title()}", x["source_page"]))
+            r.note = "statewide"
+            return r
+        if p.rank_unit == "project":
+            where, args, sha, sen = self._scope(p)
+            rows = self.con.execute(f"SELECT * FROM projects WHERE {where} AND approved_2026 > 0 ORDER BY approved_2026 {order} LIMIT 5",
+                                    args).fetchall()
+            r = Retrieval("ranking", f"Ayyuka {top_ha} a 2026 — {sha}", f"Projects with the {top_en} 2026 allocation — {sen}")
+            r.items = [{"type": "project", "name": x["project"], "amount": x["approved_2026"], "lga": x["location_name"],
+                        "page": x["source_page"]} for x in rows]
+            return r
+        # ministries (aggregate ministry-level codes)
+        m = p.rank_metric
+        base = ("FROM line_items WHERE kind='exp_admin' AND measure=? AND length(code)=12 AND substr(code,5)='00000000' "
+                "AND substr(code,3)!='0000000000'")
+        if m == "implementation":
+            meas = "capital"
+            rows = self.con.execute(f"SELECT name, 100.0*perf_2025_jan_sep/revised_2025 v, revised_2025, source_page {base} "
+                                    f"AND revised_2025 >= 1e9 ORDER BY v {order} LIMIT 5", (meas,)).fetchall()
+            r = Retrieval("ranking", f"Ma'aikatun da suka fi aiwatar da manyan ayyuka a 2025 ({top_ha})",
+                          f"Ministries by 2025 capital implementation, Jan-Sep ({top_en})")
+            for i, x in enumerate(rows, 1):
+                r.add(Fact(f"rank{i}", round(x["v"], 1), f"{i}. {x['name']}", f"{i}. {x['name']}", x["source_page"], is_pct=True))
+            r.note = "jan_sep"
+            return r
+        if m in ("growth", "decline"):
+            o = "DESC" if m == "growth" else "ASC"
+            rows = self.con.execute(f"SELECT name, 100.0*(approved_2026-revised_2025)/revised_2025 v, source_page {base} "
+                                    f"AND revised_2025 >= 1e9 ORDER BY v {o} LIMIT 5", ("total",)).fetchall()
+            r = Retrieval("ranking", "Ma'aikatun da kasafinsu ya fi " + ("karuwa" if m == "growth" else "raguwa") + " daga 2025 zuwa 2026",
+                          "Ministries with the largest budget " + ("increase" if m == "growth" else "decrease") + " from 2025 to 2026")
+            for i, x in enumerate(rows, 1):
+                lab = f"{i}. {x['name']}"
+                r.add(Fact(f"rank{i}", round(abs(x["v"]), 1), lab + (" (karuwa)" if x["v"] >= 0 else " (raguwa)"),
+                           lab + (" (increase)" if x["v"] >= 0 else " (decrease)"), x["source_page"], is_pct=True))
+            return r
+        meas = p.measure if p.measure in ("personnel", "overhead", "capital") else "total"
+        rows = self.con.execute(f"SELECT name, approved_2026 v, source_page {base} ORDER BY approved_2026 {order} LIMIT 5",
+                                (meas,)).fetchall()
+        r = Retrieval("ranking", f"Ma'aikatun da suka fi samun kudi a 2026 ({top_ha}) — {MEASURE_HA[meas]}",
+                      f"Ministries by 2026 allocation ({top_en}) — {MEASURE_EN[meas]}")
+        for i, x in enumerate(rows, 1):
+            r.add(Fact(f"rank{i}", x["v"], f"{i}. {x['name']}", f"{i}. {x['name']}", x["source_page"]))
         return r
 
     def lga(self, p, code):
@@ -258,6 +388,10 @@ class BudgetStore:
         return out
 
     def retrieve(self, p):
+        if p.intent == "project_status":
+            return self.project_status(p)
+        if p.intent == "ranking":
+            return self.ranking(p)
         if p.intent == "overview":
             return self.overview(p)
         if p.intent == "lga":

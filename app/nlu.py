@@ -101,6 +101,21 @@ WHAT_DONE = ["me ake", "me za a", "me aka", "mene ne ake", "wadanne", "wanne aik
              "what projects", "which projects", "what is being done", "what will be done", "ayyukan da"]
 TOTAL_RE = (r"jimilla|gaba daya|baki daya|duka kasafi|dukkan kasafi|total budget|whole budget|overall|"
             r"kasafin (kudin )?jiha|state budget|budget of sokoto|sokoto (state )?budget|size of the budget|girman kasafi")
+STATUS_WORDS = ["an fara", "aka fara", "fara a", "ba a kammala", "ba a gama", "ba a kare", "ba su kare", "ba su kammala",
+                "bakari", "ba kari", "ci gaba", "ongoing", "continuing", "carried over", "carry over", "uncompleted",
+                "incomplete", "not completed", "not finished", "abandoned", "watsi", "ba a fara", "sabbin ayyuka",
+                "sababbin ayyuka", "new projects", "started", "still running", "har yanzu", "kammala", "completed",
+                "finished", "dropped", "an daina", "stalled", "tsaya", "tsaye", "status"]
+RANK_TOP = ["mafi yawa", "mafi girma", "fi yawa", "fi girma", "mafi samun", "fi samun", "highest", "largest", "biggest",
+            "most", "top", "ta fi", "ya fi", "suka fi"]
+RANK_BOTTOM = ["mafi karanci", "mafi kankanta", "fi karanci", "fi kankanta", "mafi kadan", "lowest", "smallest", "least",
+               "bottom", "worst"]
+GROWTH_WORDS = ["karu", "karuwa", "kari", "increase", "increased", "grew", "growth", "rise"]
+DECLINE_WORDS = ["ragu", "raguwa", "decrease", "decreased", "cut", "cuts", "reduced", "reduction", "fall"]
+COMPARE_WORDS = ["bambanci", "kwatanta", "idan aka kwatanta", "compared", "compare", "comparison", "change", "difference",
+                 "versus", "vs", "fiye da bara", "da bara"] + GROWTH_WORDS + DECLINE_WORDS
+PROJECT_NOUNS = ["ayyuka", "ayyukan", "aiki", "aikin", "project", "projects"]
+UNIT_LGA = ["kananan hukumomi", "karamar hukuma", "lga", "lgas", "local government", "local governments"]
 YEAR_RE = re.compile(r"\b(2024|2025|2026|2027|2028)\b")
 GREETING_WORDS = ["sannu", "salam", "assalamu", "hello", "hi", "barka", "ina kwana", "ina wuni", "good morning",
                   "/start", "start", "taimako", "help"]
@@ -136,6 +151,11 @@ class Parsed:
     performance: bool = False
     project_terms: list = field(default_factory=list)
     wants_projects: bool = False
+    analysis: str = None      # project_status | ranking
+    rank_order: str = None    # top | bottom
+    rank_metric: str = None   # allocation | implementation | growth | decline
+    rank_unit: str = None     # ministry | lga | project
+    compare: bool = False
 
     def as_dict(self):
         return {k: getattr(self, k) for k in self.__dataclass_fields__}
@@ -169,9 +189,17 @@ class Understanding:
             self.mda_tokens.append((code, name, set(toks), acr))
 
     def detect_lang(self, t):
-        score = sum(1 for m in HAUSA_MARKERS if m in f" {t} ")
-        eng = sum(1 for m in [" how much", " what ", " the ", " budget", " is ", " for ", " allocated", " spent"] if m in f" {t} ")
-        return "ha" if score >= eng else "en"
+        words = re.findall(r"[a-z']+", t)
+        en_words = {"how", "much", "many", "what", "which", "who", "the", "is", "are", "was", "were", "did", "does", "for",
+                    "of", "to", "in", "on", "allocated", "spent", "budget", "projects", "project", "ministry", "still",
+                    "and", "with", "has", "have", "state", "money", "total", "show", "tell", "me", "about", "this", "that",
+                    "highest", "lowest", "most", "least", "compare", "between", "ongoing", "started", "completed"}
+        ha_words = {"nawa", "ne", "ce", "kasafi", "kasafin", "kudi", "kudin", "an", "aka", "shin", "wane", "wace", "wadanne",
+                    "menene", "mene", "yaya", "da", "na", "ta", "ma'aikatar", "jihar", "gwamnati", "ayyuka", "ayyukan",
+                    "sannu", "barka", "lafiya", "ilimi", "ware", "kashe", "ina", "su", "suka", "ya", "ta", "mafi", "fi", "a"}
+        en = sum(w in en_words for w in words)
+        ha = sum(w in ha_words for w in words)
+        return "en" if en > ha else "ha"
 
     def match_mdas(self, t):
         found = []
@@ -254,8 +282,32 @@ class Understanding:
         is_project = any(has_word(both, w) for w in PROJECT_WORDS)
         p.wants_projects = is_project or any(w in both for w in WHAT_DONE)
 
+        mentions_projects = any(has_word(both, w) for w in PROJECT_NOUNS)
+        p.compare = any(has_word(both, w) for w in COMPARE_WORDS)
+        top = any(has_word(both, w) for w in RANK_TOP)
+        bottom = any(has_word(both, w) for w in RANK_BOTTOM)
+        if top or bottom:
+            p.rank_order = "bottom" if bottom and not top else "top"
+            if any(has_word(both, w) for w in GROWTH_WORDS):
+                p.rank_metric = "growth"
+            elif any(has_word(both, w) for w in DECLINE_WORDS):
+                p.rank_metric = "decline"
+            elif p.performance or has_word(both, "aiwatar") or has_word(both, "aiwatarwa"):
+                p.rank_metric = "implementation"
+            else:
+                p.rank_metric = "allocation"
+            p.rank_unit = ("lga" if any(has_word(both, w) for w in UNIT_LGA) and not p.lga_codes
+                           else "project" if mentions_projects else "ministry")
+
         if len(t) < 25 and any(has_word(t, g) for g in GREETING_WORDS) and not (p.mda_codes or p.lga_codes):
             p.intent = "greeting"
+        elif mentions_projects and any(has_word(both, w) for w in STATUS_WORDS) and (
+                len(p.years) >= 2 or not p.rank_order):
+            p.intent = p.analysis = "project_status"
+        elif p.rank_order and not (p.rank_unit == "ministry" and p.mda_codes and not p.function_codes and
+                                   p.rank_metric == "allocation" and len(p.mda_codes) == 1 and not mentions_projects
+                                   and not any(has_word(both, w) for w in ["wace", "wane", "which", "what"])):
+            p.intent = p.analysis = "ranking"
         elif p.lga_codes:
             p.intent = "lga"
         elif is_project and p.project_terms:
