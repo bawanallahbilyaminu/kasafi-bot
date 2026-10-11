@@ -109,13 +109,17 @@ class BudgetStore:
                 scored = [x for x in scored if x[0] >= 0.6]
                 best = max(scored, key=lambda x: x[0])[1] if scored else None
             if best and best["id"] not in out:
-                out[best["id"]] = (q["ytd_actual"], q["source_page"])
+                out[best["id"]] = (q["ytd_actual"], q["source_page"], q["budget_final"])
         return out
 
     def _spent25(self, x):
-        """(2025 spending, is full year, Q4 page) for a project row."""
+        """(2025 spending, is full year, Q4 page, 2025 budget) for a project row. Full-year spending is paired with the
+        Q4 report's final 2025 budget: the 2026 budget's mid-year "revised 2025" column can be far lower (UBEC: ₦1.55bn
+        revised vs ₦5.05bn final, ₦3.61bn spent), which would read as a 232% overspend."""
         full = self.full_proj.get(x["id"])
-        return (full[0], True, full[1]) if full else (x["perf_2025_jan_sep"], False, None)
+        if full:
+            return full[0], True, full[1], (full[2] if full[2] else x["revised_2025"])
+        return x["perf_2025_jan_sep"], False, None, x["revised_2025"]
 
     def b25(self, kind, measure, code):
         """Row from the 2025 approved budget (original 2025 figures, 2023 actuals)."""
@@ -422,8 +426,8 @@ class BudgetStore:
         return r
 
     def _proj_item(self, x, gha, gen):
-        sp, full, qpage = self._spent25(x)
-        return {"type": "status_project", "name": x["project"], "amount": x["approved_2026"], "budget_2025": x["revised_2025"],
+        sp, full, qpage, b25 = self._spent25(x)
+        return {"type": "status_project", "name": x["project"], "amount": x["approved_2026"], "budget_2025": b25,
                 "spent_2025": sp, "spent_full": full, "q4_page": qpage, "lga": x["location_name"], "page": x["source_page"],
                 "group_ha": gha, "group_en": gen}
 
@@ -673,10 +677,10 @@ class BudgetStore:
                                     " ORDER BY approved_2026 DESC LIMIT ?", [*args, limit]).fetchall()
         out = []
         for x in rows:
-            sp, full, qpage = self._spent25(x)
+            sp, full, qpage, b25 = self._spent25(x)
             out.append({"type": "project", "name": x["project"], "amount": x["approved_2026"], "lga": x["location_name"],
                         "mda": x["mda_name"], "spent_2025": sp, "spent_full": full, "q4_page": qpage,
-                        "budget_2025": x["revised_2025"], "page": x["source_page"]})
+                        "budget_2025": b25, "page": x["source_page"]})
         return out
 
     def retrieve(self, p):

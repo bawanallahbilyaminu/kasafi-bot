@@ -141,7 +141,14 @@ def claim_checks():
         got = e.nlu.parse(q).intent
         if got != want:
             print(f"FAIL claim: '{q}' routed to {got}, expected {want}"); fails += 1
-    print(f"claims: {len(cases) + 6 + len(routing) - fails}/{len(cases) + 6 + len(routing)} passed")
+    # full-year (Q4) project spending is shown with the Q4 final budget, not the 2026 budget's mid-year 2025 column
+    # (UBEC: ₦1.55bn revised vs ₦5.05bn final, ₦3.61bn spent would read as a 232% overspend)
+    over = [pid for pid, (sp, _pg, bf) in e.store.full_proj.items() if bf and sp > bf + 1]
+    shown = [e.store._proj_item(x, "", "") for x in e.store.con.execute(
+        f"SELECT * FROM projects WHERE id IN ({','.join('?' * len(e.store.full_proj))})", list(e.store.full_proj)).fetchall()]
+    if over or any(i["spent_2025"] > (i["budget_2025"] or 0) + 1 for i in shown):
+        print("FAIL claim: a full-year project shows more spent than its 2025 budget"); fails += 1
+    print(f"claims: {len(cases) + 7 + len(routing) - fails}/{len(cases) + 7 + len(routing)} passed")
     return fails
 
 
