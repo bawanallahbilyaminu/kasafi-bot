@@ -9,6 +9,7 @@ web/client/dist/
 web/client/.env
 web/server/.env
 web/server/data/
+private/
 
 # local voice recordings (user data)
 test-voice.ogg

@@ -73,11 +73,11 @@ class LogStore:
 
     # ---------------------------------------------------------------- users (name + organisation)
     def get_user(self, uhash):
-        self.con.row_factory = sqlite3.Row
-        try:
-            r = self.con.execute("SELECT * FROM users WHERE user_hash=?", (uhash,)).fetchone()
-        finally:
-            self.con.row_factory = None
+        # own cursor with its own row factory: the shared connection is never changed (safe across threads)
+        with self._lock:
+            cur = self.con.cursor()
+            cur.row_factory = sqlite3.Row
+            r = cur.execute("SELECT * FROM users WHERE user_hash=?", (uhash,)).fetchone()
         return dict(r) if r else None
 
     def upsert_user(self, uhash, completed=False, **fields):
@@ -92,6 +92,10 @@ class LogStore:
             self.con.commit()
 
     def stats(self):
+        with self._lock:
+            return self._stats()
+
+    def _stats(self):
         q = lambda sql, *a: self.con.execute(sql, a).fetchone()[0]
         chans = "channel IN ('telegram','whatsapp','web')"
         return {
@@ -112,12 +116,14 @@ class LogStore:
         where = "i.channel IN ('telegram','whatsapp','web')"
         if only_bad:
             where += " AND (i.feedback=-1 OR i.answer_source='template' OR i.error IS NOT NULL)"
-        return self.con.execute(
+        with self._lock:
+            return self.con.execute(
             f"SELECT i.id, i.ts_utc, i.channel, i.input_type, coalesce(u.name,'?'), coalesce(u.organization,'?'), "
             f"i.transcript, i.intent, i.answer_source, i.grounding_fail, i.feedback, i.answer, i.error "
             f"FROM interactions i LEFT JOIN users u ON u.user_hash=i.user_hash WHERE {where} "
             f"ORDER BY i.id DESC LIMIT ?", (n,)).fetchall()
 
     def last_for_user(self, uhash):
-        r = self.con.execute("SELECT id FROM interactions WHERE user_hash=? ORDER BY id DESC LIMIT 1", (uhash,)).fetchone()
+        with self._lock:
+            r = self.con.execute("SELECT id FROM interactions WHERE user_hash=? ORDER BY id DESC LIMIT 1", (uhash,)).fetchone()
         return r[0] if r else None

@@ -27,10 +27,8 @@ ABOUT = ("ℹ️ *Kasafi Bot* — Halal Numeriq Limited, Sokoto.\n"
          "Bayanai daga: Kasafin Kudin Jihar Sokoto na 2026 da na 2025 (wadanda aka amince), da rahotannin aiwatar da "
          "kasafi na kowane wata uku (2025–2026).\n"
          "Fasaha: N-ATLaS (harshe) da Hausa-ASR (murya).\n\n_" + config.ATTRIBUTION + "_\n\n"
-         "Muna adana sunanka, kungiyarka, tambayoyinka da amsoshi domin inganta sabis. Ba mu adana lambar wayarka. "
-         "Aiko /canza don sabunta sunanka ko kungiyarka.")
-ORG_CHOICES = ["Ma'aikatar Kasafi (MBEP)", "Abokin ci gaba (Development partner)", "Kungiyar farar hula (CSO)",
-               "Dalibi (Student)", "Babu (None)"]
+         "Muna adana sunanku, kungiyarku, tambayoyinku da amsoshi domin inganta sabis. Ba ma adana lambar wayarku, "
+         "kuma ba ma raba bayananku da kowa. Aiko /canza don sabunta sunanku ko kungiyarku.")
 
 
 def feedback_kb(iid):
@@ -56,7 +54,7 @@ async def send_answer(update: Update, text: str, iid: int, transcript: str = Non
 
 # ------------------------------------------------------------------ live progress
 STEPS = {  # stage -> (Hausa in progress, Hausa done, English in progress, English done)
-    "listen": ("Ina sauraron sakon muryarka", "Na saurari sakon", "Listening to your voice note", "Listened"),
+    "listen": ("Ina sauraron sakon muryarku", "Na saurari sakon", "Listening to your voice note", "Listened"),
     "understand": ("Ina fahimtar tambayar (N-ATLaS)", "Na fahimci tambayar", "Understanding the question (N-ATLaS)",
                    "Understood the question"),
     "search": ("Ina duba kasafin kudi", "Na duba kasafin kudi", "Searching the budget documents", "Searched the budget"),
@@ -68,7 +66,7 @@ class Status:
     """One message that updates as the engine works, plus Telegram's 'typing…' / 'recording voice…' indicator
     kept alive the whole time (Telegram clears a chat action after ~5 s, so it is re-sent every 4 s).
 
-        ⏳ Ina sauraron sakon muryarka…          (voice received)
+        ⏳ Ina sauraron sakon muryarku…          (voice received)
         🎙️ Na ji: “nawa aka kashe …”
         ✅ Na fahimci tambayar
         ⏳ Ina duba kasafin kudi…
@@ -179,10 +177,6 @@ def name_kb(user):
     return InlineKeyboardMarkup([[InlineKeyboardButton(f"✅ {full}", callback_data="nm")]]) if full else None
 
 
-def org_kb():
-    return InlineKeyboardMarkup([[InlineKeyboardButton(o, callback_data=f"org:{i}")] for i, o in enumerate(ORG_CHOICES)])
-
-
 async def reply_md(msg, text, kb=None):
     try:
         return await msg.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=kb)
@@ -205,7 +199,7 @@ async def registered(update: Update, context: ContextTypes.DEFAULT_TYPE, text=No
     step = ENGINE.onboarding.step(uh, "telegram", text, pending=pending)
     msg = update.effective_message
     if not step.done:
-        kb = name_kb(update.effective_user) if step.stage == "name" else org_kb()
+        kb = name_kb(update.effective_user) if step.stage == "name" else None   # organisation: typed (UNDP, UNICEF…)
         await reply_md(msg, step.reply, kb)
         return False
     await reply_md(msg, step.reply, None if step.pending else examples_kb())
@@ -214,7 +208,7 @@ async def registered(update: Update, context: ContextTypes.DEFAULT_TYPE, text=No
         if v:
             await answer_voice(update, context, *v)
         else:
-            await msg.reply_text("Don Allah sake aiko da sakon muryarka.")
+            await msg.reply_text("Don Allah ku sake aiko da sakon muryarku.")
     elif step.pending:
         await answer_text(update, context, step.pending)
     return False
@@ -397,9 +391,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_reply_markup(reply_markup=None)
         u = update.effective_user
         await registered(update, context, " ".join(x for x in (u.first_name, u.last_name) if x))
-    elif kind == "org":
-        await q.edit_message_reply_markup(reply_markup=None)
-        await registered(update, context, ORG_CHOICES[int(rest[0])])
+
 
 
 def main():

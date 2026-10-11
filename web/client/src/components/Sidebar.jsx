@@ -82,7 +82,7 @@ export default function Sidebar({ open, onClose }) {
           </button>
         </div>
         <nav className="mt-3 flex-1 overflow-y-auto px-3 pb-3">
-          {!sessions.length && <p className="px-3 py-2 text-sm text-ink-soft">Tattaunawarka za ta bayyana a nan.</p>}
+          {!sessions.length && <p className="px-3 py-2 text-sm text-ink-soft">Tattaunawarku za ta bayyana a nan.</p>}
           {groups.map((g) => (
             <div key={g.name} className="mb-3">
               <p className="px-3 pb-1 pt-2 text-sm font-medium text-ink-soft">{g.name}</p>
@@ -94,7 +94,7 @@ export default function Sidebar({ open, onClose }) {
         </nav>
         <div className="flex items-center gap-3 border-t border-line px-4 py-3">
           <UserButton />
-          <button onClick={() => dispatch(startEditing())} className="min-w-0 flex-1 text-left" title="Canza bayananka">
+          <button onClick={() => dispatch(startEditing())} className="min-w-0 flex-1 text-left" title="Canza bayananku">
             <span className="block truncate font-medium">{profile?.name}</span>
             <span className="block truncate text-sm text-ink-soft">{profile?.organization}</span>
           </button>

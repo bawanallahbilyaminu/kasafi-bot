@@ -57,7 +57,7 @@ export default function useRecorder({ onDone }) {
         const send = r.send
         cleanup()
         if (send && long && blob.size > 1000) onDone(blob)
-        else if (send) setError('Sakon ya yi gajere. Danna makirufo, yi magana, sannan ka danna don aikawa.')
+        else if (send) setError('Sakon ya yi gajere. Danna makirufo, yi magana, sannan ku danna don aikawa.')
       }
       // level meter
       try {

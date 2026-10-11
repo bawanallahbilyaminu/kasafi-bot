@@ -3,8 +3,8 @@
 Writes to evidence/:
   interactions.csv      one row per user interaction (user ids are salted hashes)
   summary.md            counts, voice share, latency, feedback, N-ATLaS answer rate, organisations
-  users_private.csv     name, organisation and activity per registered user. PRIVATE: for improving the
-                        bot only; do not publish (evidence/ is gitignored)
+Also writes private/users_private.csv (names, organisation and activity per registered user) to a SEPARATE
+folder, so it is never uploaded with the evidence by accident. private/ is gitignored.
 
 Run: python scripts/export_evidence.py
 """
@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT))
 from app import config  # noqa: E402
 
 OUT = ROOT / "evidence"
+PRIVATE = ROOT / "private"
 COLS = ["id", "ts_utc", "channel", "user_hash", "input_type", "audio_seconds", "transcript", "english", "lang", "intent",
         "answer_source", "grounding_fail", "ms_asr", "ms_understand", "ms_retrieve", "ms_write", "ms_total",
         "asr_model", "llm_model", "feedback", "voice_reply", "ms_tts", "organization", "answer", "error"]
@@ -45,7 +46,8 @@ def main():
             "FROM users u LEFT JOIN interactions i ON i.user_hash = u.user_hash WHERE u.stage='done' "
             "GROUP BY u.user_hash ORDER BY questions DESC")]
         if urows:
-            with open(OUT / "users_private.csv", "w", newline="", encoding="utf-8") as f:
+            PRIVATE.mkdir(exist_ok=True)
+            with open(PRIVATE / "users_private.csv", "w", newline="", encoding="utf-8") as f:
                 w = csv.DictWriter(f, fieldnames=list(urows[0]))
                 w.writeheader()
                 w.writerows(urows)

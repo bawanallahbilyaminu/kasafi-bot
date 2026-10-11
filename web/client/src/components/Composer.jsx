@@ -50,7 +50,7 @@ export default function Composer() {
         ) : (
           <textarea ref={box} rows={1} value={text} onChange={(e) => setText(e.target.value)} disabled={!!pending}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-            placeholder="Rubuta tambayarka, ko danna makirufo ka yi magana…" aria-label="Tambaya"
+            placeholder="Rubuta tambayarku, ko ku danna makirufo ku yi magana…" aria-label="Tambaya"
             className="max-h-[180px] min-h-[48px] flex-1 resize-none bg-transparent px-3 py-3 outline-none placeholder:text-ink-soft disabled:opacity-60" />
         )}
 

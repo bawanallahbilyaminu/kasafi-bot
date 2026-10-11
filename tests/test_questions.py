@@ -116,6 +116,12 @@ def onboarding_checks():
          ob.step("u2", "whatsapp", "UNICEF")]
     if v[-1].pending != "media:audio/ogg|https://x/1":
         print("FAIL onboarding: voice note sent before registering was not kept"); fails += 1
+    st = ob.step("u3", "telegram", "hi")
+    st = ob.step("u3", "telegram", "Nawa aka ware wa lafiya")      # short question, no "?": must not become the name
+    if st.stage != "name" or ob.logs.get_user("u3")["name"]:
+        print("FAIL onboarding: a short question was saved as a name"); fails += 1
+    if "adana" not in ob.step("u4", "telegram", "hello").reply:
+        print("FAIL onboarding: privacy notice missing from the first prompt"); fails += 1
     print(f"onboarding: {'OK' if not fails else f'{fails} failures'}")
     return fails
 

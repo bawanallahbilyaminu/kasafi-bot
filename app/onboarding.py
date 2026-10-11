@@ -5,6 +5,7 @@ Works the same on Telegram and WhatsApp (plain text replies; Telegram adds butto
 organisation without storing phone numbers or Telegram ids. If someone asks a question before registering, it is
 kept and answered as soon as they finish.
 """
+import re
 from dataclasses import dataclass
 
 COMMANDS = {"join", "start", "/start", "help", "taimako", "menu", "/help", "/taimako"}
@@ -12,17 +13,33 @@ NONE_WORDS = {"babu", "none", "no", "nil", "ba ni da", "ba", "-", "n/a", "na"}
 
 ASK_NAME = ("Barka da zuwa *Kasafi Bot*! 👋\n"
             "Ina amsa tambayoyi kan kasafin kudin Jihar Sokoto, ta rubutu ko sakon murya.\n\n"
-            "Kafin mu fara, don Allah rubuta *sunanka* (misali: Aminu Bello).\n"
-            "_Welcome! Please type your name to get started._")
+            "Kafin mu fara, don Allah ku rubuta *sunanku* (misali: Aminu Bello).\n\n"
+            "🔒 _Za mu adana sunanku, kungiyarku, da tambayoyinku tare da amsoshi, domin inganta Kasafi Bot. "
+            "Ba ma adana lambar wayarku, kuma ba ma raba bayananku da kowa. Idan kuka ci gaba, kun amince da haka._\n"
+            "_Welcome! Please type your name. We store your name, organisation, questions and answers to improve the "
+            "service; we do not store your phone number or share your data._")
 ASK_ORG = ("Na gode, *{name}*. 🙏\n"
-           "Wace *ma'aikata, hukuma ko kungiya* kake aiki da ita? "
-           "(misali: Ma'aikatar Kasafi, UNICEF, Jami'ar Usmanu Danfodiyo). Idan babu, rubuta *Babu*.\n"
-           "_Which ministry, agency or organisation are you with? Type 'None' if none._")
-LATER = "Zan amsa wannan tambayar da zarar ka gama rajista. 🙂\n\n"
-BAD_NAME = "Don Allah rubuta sunanka (harafi 2 zuwa 60). _Please type your name._"
-DONE = ("✅ Mun gama, *{name}*! Yanzu kana iya tambaya ta *rubutu* ko *sakon murya*.\n\n"
-        "_Muna adana sunanka, kungiyarka da tambayoyinka domin inganta Kasafi Bot. Ba mu adana lambar wayarka._")
-DONE_PENDING = "\n\nGa amsar tambayar da ka fara aikowa: ⬇️"
+           "Wace *ma'aikata, hukuma ko kungiya* kuke aiki da ita? Ku rubuta sunanta "
+           "(misali: UNDP, UNFPA, UNICEF, Ma'aikatar Kasafi). Idan babu, ku rubuta *Babu*.\n"
+           "_Which organisation are you with? Type its name, e.g. UNDP, UNFPA, UNICEF. Type 'None' if none._")
+LATER = "Zan amsa wannan tambayar da zarar kun gama rajista. 🙂\n\n"
+BAD_NAME = "Don Allah ku rubuta sunanku (harafi 2 zuwa 60). _Please type your name._"
+DONE = "✅ Mun gama, *{name}*! Yanzu kuna iya tambaya ta *rubutu* ko *sakon murya*. Aiko /canza don sabunta bayananku."
+DONE_PENDING = "\n\nGa amsar tambayar da kuka fara aikowa: ⬇️"
+
+# words that mark a budget question rather than a person's name
+QUESTION_WORDS = {
+    "nawa", "wane", "wace", "wadanne", "wanne", "wacce", "yaya", "me", "mene", "menene", "meye", "shin", "ina", "an",
+    "aka", "kasafi", "kasafin", "kudi", "kudin", "kudade", "kudaden", "naira", "ayyuka", "ayyukan", "aiki", "ware",
+    "kashe", "lafiya", "ilimi", "noma", "ruwa", "hanya", "hanyoyi", "ma'aikata", "ma'aikatar", "karamar", "hukumar",
+    "jiha", "jihar", "shekara", "shekarar", "budget", "how", "what", "which", "when", "where", "why", "much", "many",
+    "allocated", "spent", "projects", "revenue", "health", "education",
+}
+
+
+def looks_like_question(msg):
+    words = re.findall(r"[a-z']+", msg.lower().replace("’", "'"))
+    return "?" in msg or bool(re.search(r"\d", msg)) or len(words) > 5 or any(w in QUESTION_WORDS for w in words)
 
 
 @dataclass
@@ -64,7 +81,7 @@ class Onboarding:
         if pending and not u["pending"]:
             self.logs.upsert_user(uhash, pending=pending)
         if u["stage"] == "name":
-            if "?" in msg or len(msg.split()) > 5:     # a question, not a name: keep it for later
+            if looks_like_question(msg):               # a question, not a name: keep it for later
                 if not u["pending"]:
                     self.logs.upsert_user(uhash, pending=msg)
                 return Step(False, LATER + ASK_NAME.split("\n\n", 1)[1], stage="name")

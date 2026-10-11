@@ -2,9 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { saveProfile, stopEditing } from '../store/profileSlice'
 
-const ORGS = ['Ma’aikatar Kasafi (MBEP)', 'Abokin ci gaba (Development partner)', 'Kungiyar farar hula (CSO)',
-  'Dalibi (Student)', 'Babu (None)']
-
 export default function Onboarding() {
   const dispatch = useDispatch()
   const { profile, suggested, saving, error, status } = useSelector((s) => s.profile)
@@ -24,8 +21,8 @@ export default function Onboarding() {
       <form onSubmit={submit} className="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
         <h2 id="ob-title" className="text-2xl font-bold">{first ? 'Barka da zuwa!' : 'Bayananka'}</h2>
         <p className="mt-1 text-ink-soft">
-          {first ? 'Kafin mu fara, gaya mana sunanka da inda kake aiki. Yana taimaka mana mu inganta Kasafi.'
-            : 'Sabunta sunanka ko kungiyarka.'}
+          {first ? 'Kafin mu fara, ku gaya mana sunanku da inda kuke aiki. Idan babu, ku rubuta Babu.'
+            : 'Ku sabunta sunanku ko kungiyarku.'}
         </p>
 
         <label className="mt-5 block font-medium" htmlFor="ob-name">Suna <span className="font-normal text-ink-soft">(Name)</span></label>
@@ -37,20 +34,12 @@ export default function Onboarding() {
           Ma’aikata, hukuma ko kungiya <span className="font-normal text-ink-soft">(Organisation)</span>
         </label>
         <input id="ob-org" value={org} onChange={(e) => setOrg(e.target.value)} maxLength={120} required
-          placeholder="misali: UNICEF, Jami’ar Usmanu Danfodiyo"
+          placeholder="misali: UNDP, UNFPA, UNICEF, Ma’aikatar Kasafi"
           className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 outline-none focus:border-green" />
-        <div className="mt-2 flex flex-wrap gap-2">
-          {ORGS.map((o) => (
-            <button type="button" key={o} onClick={() => setOrg(o)}
-              className={`rounded-full border px-3 py-1 text-sm ${org === o ? 'border-green bg-green-soft' : 'border-line hover:bg-paper'}`}>
-              {o}
-            </button>
-          ))}
-        </div>
 
         {error && <p className="mt-3 text-sm text-danger" role="alert">{error}</p>}
         <p className="mt-4 text-sm text-ink-soft">
-          Muna adana sunanka, kungiyarka da tambayoyinka domin inganta Kasafi. Ba ma raba su da kowa.
+          Za mu adana sunanku, kungiyarku, da tambayoyinku tare da amsoshi domin inganta Kasafi. Ba ma raba bayananku da kowa. Idan kuka ci gaba, kun amince da haka.
         </p>
         <div className="mt-5 flex justify-end gap-2">
           {!first && (

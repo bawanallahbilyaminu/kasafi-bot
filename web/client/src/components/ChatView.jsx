@@ -13,7 +13,7 @@ const EXAMPLES = [
   'How much revenue did the state receive in 2025?',
 ]
 const STEPS = [
-  ['listen', 'Ina sauraron sakon muryarka'],
+  ['listen', 'Ina sauraron sakon muryarku'],
   ['understand', 'Ina fahimtar tambayar (N-ATLaS)'],
   ['search', 'Ina duba kasafin kudi'],
   ['write', 'Ina rubuta amsa (N-ATLaS)'],
@@ -69,8 +69,8 @@ export default function ChatView({ onMenu }) {
       <div className="flex-1 overflow-y-auto">
         {empty ? (
           <div className="mx-auto flex h-full max-w-3xl flex-col justify-center px-5 py-10">
-            <h2 className="text-3xl font-bold leading-tight md:text-4xl">Sannu{name ? `, ${name}` : ''}. Me kake so ka sani game da kasafin Sokoto?</h2>
-            <p className="mt-3 text-ink-soft">Danna makirufo ka yi tambaya da Hausa, ko ka rubuta. Ga wasu misalai:</p>
+            <h2 className="text-3xl font-bold leading-tight md:text-4xl">Sannu{name ? `, ${name}` : ''}. Me kuke so ku sani game da kasafin Sokoto?</h2>
+            <p className="mt-3 text-ink-soft">Ku danna makirufo ku yi tambaya da Hausa, ko ku rubuta. Ga wasu misalai:</p>
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
               {EXAMPLES.map((q) => (
                 <button key={q} onClick={() => dispatch(ask({ text: q }))}
