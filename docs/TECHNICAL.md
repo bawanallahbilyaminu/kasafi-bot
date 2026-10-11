@@ -199,6 +199,9 @@ IGR read as the Internal Revenue Board's budget) led to the "must state the requ
 revenue routing fix, both now covered by replay tests in `tests/test_questions.py`. Re-run after those fixes:
 **59/60 (98%)**, median 4.9 s (`bench/report_llm_sample60_after.md`); the remaining case (an N-ATLaS translation
 turning "what projects are in Wamakko" into a project-status question) is fixed and covered by a replay test.
+Third run, after that fix: **60/60 answers correct**, median 4.8 s (`bench/report_llm_sample60_run3.md`). The report
+shows 59/60 because N-ATLaS wrote "kashi 41.8." and the scorer missed a percentage followed by a full stop; the
+scorer is fixed. All 5 fallbacks were checks catching a draft that left out or changed the requested figure.
 
 The first-run held-out scores (88–91%) are the honest estimate for unseen questions with the rules alone; in the
 live system N-ATLaS's translation and topic hints are added before routing. `python bench/run_benchmark.py --llm`
