@@ -50,6 +50,21 @@ SECTOR_WORDS = {
     "051700300100": ["subeb", "universal basic education"],
 }
 
+# Cross-cutting topics answered from the FUNCTIONAL classification (all MDAs together)
+FUNCTION_WORDS = {
+    "710": ["social protection", "kariyar zamantakewa", "kariya ga marasa karfi", "marasa galihu", "marasa karfi",
+            "talakawa", "cash transfer", "tallafin kudi", "social safety net", "safety net", "social security",
+            "jin dadin jama'a", "tallafi ga talakawa"],
+    "7102": ["pension", "pensions", "fansho", "'yan fansho", "yan fansho", "gratuity", "old age", "tsofaffi"],
+    "7101": ["disability benefits", "masu bukata ta musamman"],
+    "7104": ["family and children", "kananan yara", "children welfare"],
+    "7105": ["unemployment", "rashin aikin yi", "marasa aikin yi"],
+    "703": ["public order", "public safety", "oda da tsaro"],
+    "705": ["environmental protection", "kare muhalli"],
+    "706": ["community amenities", "housing and community"],
+    "708": ["recreation", "culture and religion", "al'adu"],
+}
+
 LGA_ALIASES = {
     "33310100": ["binji"], "33311100": ["kware"], "33311500": ["silame"],
     "33311600": ["sokoto north", "sakkwato ta arewa", "sokoto ta arewa"],
@@ -84,6 +99,8 @@ PROJECT_KEYWORDS = {
 }
 WHAT_DONE = ["me ake", "me za a", "me aka", "mene ne ake", "wadanne", "wanne aiki", "wane aiki", "wane ayyuka",
              "what projects", "which projects", "what is being done", "what will be done", "ayyukan da"]
+TOTAL_RE = (r"jimilla|gaba daya|baki daya|duka kasafi|dukkan kasafi|total budget|whole budget|overall|"
+            r"kasafin (kudin )?jiha|state budget|budget of sokoto|sokoto (state )?budget|size of the budget|girman kasafi")
 YEAR_RE = re.compile(r"\b(2024|2025|2026|2027|2028)\b")
 GREETING_WORDS = ["sannu", "salam", "assalamu", "hello", "hi", "barka", "ina kwana", "ina wuni", "good morning",
                   "/start", "start", "taimako", "help"]
@@ -112,6 +129,7 @@ class Parsed:
     lang: str = "ha"
     intent: str = "unknown"  # greeting | overview | revenue | mda | lga | project | unknown
     mda_codes: list = field(default_factory=list)
+    function_codes: list = field(default_factory=list)
     lga_codes: list = field(default_factory=list)
     measure: str = None  # personnel | overhead | capital | debt_service | revenue | None
     years: list = field(default_factory=list)
@@ -133,6 +151,11 @@ class Understanding:
         self.lgas.update(dict(con.execute("SELECT DISTINCT location_code, location_name FROM projects "
                                           "WHERE length(location_code)=8").fetchall()))
         self.lga_aliases = {c: list(LGA_ALIASES.get(c, [])) + [norm(n)] for c, n in self.lgas.items()}
+        con2 = sqlite3.connect(budget_db)
+        self.functions = [(c, n) for c, n in con2.execute(
+            "SELECT code, name FROM line_items WHERE kind='exp_function' AND measure='total' AND length(code) IN (3,4)")
+            if re.fullmatch(r"[A-Z ,&.()'-]+", n or "")]  # skip names garbled in the PDF
+        con2.close()
         con.close()
         self.mda_tokens = []
         ministry_names = {c[:4]: norm(n) for c, n in self.mdas if c[4:] == "0" * 8}
@@ -175,6 +198,28 @@ class Understanding:
         found = [c for c in found if not (c[4:] == "00000000" and any(s[:4] == c[:4] for s in specific))] if specific else found
         return found[:3]
 
+    @staticmethod
+    def _only_budget_words(t):
+        """'Menene kasafin 2026?' / 'what is the budget' -> nothing but question words + 'budget'."""
+        words = set(re.findall(r"[a-z']+", t))
+        if not words & {"kasafi", "kasafin", "budget"}:
+            return False
+        filler = {"menene", "mene", "me", "nawa", "ne", "ce", "shin", "yaya", "kasafi", "kasafin", "kudi", "kudin",
+                  "jiha", "jihar", "sokoto", "sakkwato", "na", "ta", "a", "da", "gwamnati", "gwamnatin", "budget",
+                  "what", "is", "the", "of", "how", "much", "state", "for", "in", "this", "year", "bana", "shekara",
+                  "shekarar", "ina", "son", "sanin", "fada", "min", "mini", "game", "akan"}
+        return words <= filler
+
+    def match_functions(self, t):
+        found = [c for c, words in FUNCTION_WORDS.items() if any(has_word(t, w) for w in words)]
+        qtok = set(re.findall(r"[a-z']+", t))
+        weak = {"general", "services", "and", "affairs", "n.e.c", "nec", "other", "of", "the", "public"}
+        for code, name in self.functions:
+            toks = {w for w in re.findall(r"[a-z]+", name.lower()) if w not in weak and len(w) > 2}
+            if len(toks) >= 2 and toks <= qtok and code not in found:
+                found.append(code)
+        return found[:2]
+
     def match_lgas(self, t):
         out = []
         for code, al in self.lga_aliases.items():
@@ -200,6 +245,7 @@ class Understanding:
                 break
         p.mda_codes = self.match_mdas(both)
         p.lga_codes = self.match_lgas(both)
+        p.function_codes = self.match_functions(both)
         terms = []
         for ha, en in PROJECT_KEYWORDS.items():
             if has_word(both, ha) or has_word(both, en):
@@ -214,6 +260,8 @@ class Understanding:
             p.intent = "lga"
         elif is_project and p.project_terms:
             p.intent = "project"
+        elif p.function_codes and not (p.mda_codes and any(has_word(t, w) for v in SECTOR_WORDS.values() for w in v)):
+            p.intent = "function"
         elif p.mda_codes:
             p.intent = "mda"
         elif p.measure == "revenue":
@@ -222,6 +270,6 @@ class Understanding:
             p.intent = "overview"
         elif p.project_terms:
             p.intent = "project"
-        elif re.search(r"kasafi|budget|jimilla|gaba daya|baki daya|total|kasafin kudi", both):
+        elif re.search(TOTAL_RE, both) or self._only_budget_words(t):
             p.intent = "overview"
         return p

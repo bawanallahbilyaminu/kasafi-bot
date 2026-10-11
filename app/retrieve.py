@@ -3,6 +3,7 @@
 Every fact carries the exact figure, the year/measure it refers to, and the source page,
 so the answer writer (N-ATLaS) can only restate what is in the document.
 """
+import re
 import sqlite3
 from dataclasses import dataclass, field
 
@@ -19,6 +20,14 @@ YEAR_LABEL_EN = {2024: "2024 actual spending", 2025: "2025 revised budget", 2026
                  2027: "2027 estimate", 2028: "2028 estimate"}
 
 
+FUNC_HA = {"701": "Ayyukan gwamnati na gaba daya", "703": "Tsaro da oda", "704": "Harkokin tattalin arziki",
+           "705": "Kare muhalli", "706": "Gidaje da ababen more rayuwa", "707": "Lafiya",
+           "708": "Wasanni, al'adu da addini", "709": "Ilimi", "710": "Kariyar zamantakewa",
+           "7101": "Tallafi ga masu nakasa", "7102": "Fansho da tsofaffi", "7104": "Iyali da yara",
+           "7105": "Rashin aikin yi"}
+CAT_HA = {"7101": "Nakasa da rashin lafiya", "7102": "Fansho da tsofaffi", "7103": "Iyalan mamata",
+          "7104": "Iyali da yara", "7105": "Rashin aikin yi", "7106": "Gidaje", "7107": "Marasa galihu",
+          "7109": "Sauran kariyar zamantakewa"}
 SECTOR_HA = {"Administration Sector": "gudanarwa", "Economic Sector": "tattalin arziki", "Law and Justice": "shari'a",
              "Social Sector": "walwalar jama'a (ilimi, lafiya da sauransu)"}
 
@@ -138,6 +147,46 @@ class BudgetStore:
             r.items += self.projects(p, mda_like=like, limit=4)
         return r
 
+    def function(self, p, code):
+        row = self.con.execute("SELECT * FROM line_items WHERE kind='exp_function' AND measure='total' AND code=?",
+                               (code,)).fetchone()
+        name_en = row["name"].title() if row else code
+        r = Retrieval("function", f"{FUNC_HA.get(code, name_en)} ({name_en})", f"{name_en} (all ministries and agencies)")
+        if not row:
+            return r
+        years = [y for y in p.years if y in YEAR_COL] or [2026]
+        perf_block = p.performance or 2025 in years
+        if perf_block:
+            years = [y for y in years if y != 2025]
+        for y in years:
+            r.add(Fact(f"func_{y}", row[YEAR_COL[y]], f"Jimillar kasafi — {YEAR_LABEL_HA[y]}",
+                       f"Total — {YEAR_LABEL_EN[y]}", row["source_page"]))
+        if 2026 in years:
+            for m in ("personnel", "overhead", "capital"):
+                mr = self.con.execute("SELECT * FROM line_items WHERE kind='exp_function' AND measure=? AND code=?",
+                                      (m, code)).fetchone()
+                if mr and mr["approved_2026"]:
+                    r.add(Fact(f"{m}_2026", mr["approved_2026"], f"{MEASURE_HA[m].capitalize()} (2026)",
+                               f"{MEASURE_EN[m].capitalize()} (2026)", mr["source_page"]))
+        if row["revised_2025"]:
+            r.add(Fact("func_rev2025", row["revised_2025"], "Kasafin 2025", "2025 revised budget", row["source_page"]))
+            r.add(Fact("func_spent2025", row["perf_2025_jan_sep"], "Abin da aka kashe Jan-Sat 2025",
+                       "Spent Jan-Sep 2025", row["source_page"]))
+            r.add(Fact("func_pct2025", pct(row["perf_2025_jan_sep"], row["revised_2025"]), "Kaso da aka aiwatar (2025)",
+                       "2025 implementation rate", row["source_page"], is_pct=True))
+        # sub-categories (e.g. old age / pensions, disability, unemployment under social protection)
+        if len(code) == 3:
+            subs = self.con.execute("SELECT * FROM line_items WHERE kind='exp_function' AND measure='total' AND length(code)=4 "
+                                    "AND code LIKE ? AND approved_2026>0 ORDER BY approved_2026 DESC LIMIT 5", (code + "%",)).fetchall()
+            for sb in subs:
+                if re.fullmatch(r"[A-Z ,&.()'-]+", sb["name"] or ""):
+                    en = sb["name"].title().replace("N.E.C.", "(other)").replace("N.E.C", "(other)").replace("Exclussion", "Exclusion")
+                    ha = CAT_HA.get(sb["code"])
+                    r.items.append({"type": "category", "name": f"{ha} ({en})" if ha else en, "name_en": en,
+                                    "amount": sb["approved_2026"], "page": sb["source_page"]})
+        r.items += self.projects(p, function_like=code + "%", limit=4)
+        return r
+
     def lga(self, p, code):
         r = Retrieval("lga")
         row = self.con.execute("SELECT * FROM line_items WHERE kind='exp_location' AND measure='total' AND code=?", (code,)).fetchone()
@@ -184,8 +233,10 @@ class BudgetStore:
         r.items = self.projects(p, limit=6)
         return r
 
-    def projects(self, p, mda_like=None, location=None, limit=5):
+    def projects(self, p, mda_like=None, location=None, limit=5, function_like=None):
         where, args = ["approved_2026 > 0"], []
+        if function_like:
+            where.append("function_code LIKE ?"); args.append(function_like)
         if mda_like:
             where.append("mda_code LIKE ?"); args.append(mda_like)
         if location:
@@ -213,6 +264,8 @@ class BudgetStore:
             return self.lga(p, p.lga_codes[0])
         if p.intent == "mda":
             return self.mda(p, p.mda_codes[0])
+        if p.intent == "function":
+            return self.function(p, p.function_codes[0])
         if p.intent == "revenue":
             return self.revenue(p)
         if p.intent == "project":

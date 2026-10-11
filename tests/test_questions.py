@@ -29,6 +29,10 @@ CASES = [  # question, expected text in the answer
     ("Kudin tallafin karatu nawa ne?", "Scholarship"),
     ("ina son sanin kasafin Gwadabawa", "Gwadabawa"),
     ("Sannu", "Kasafi Bot"),
+    ("nawa aka warewa social protection a 2026 a sokoto?", "₦34.37 biliyan"),
+    ("Nawa aka ware wa 'yan fansho?", "₦10.27 biliyan"),
+    ("Menene kasafin 2026?", "₦758.7 biliyan"),
+    ("nawa aka ware wa wani abu da ba a sani ba?", "Yi hakuri"),
 ]
 
 

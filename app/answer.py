@@ -46,14 +46,22 @@ def facts_block(ret, lang):
             lines.append(f"- {'Aiki' if lang == 'ha' else 'Project'}: {i['name']}{extra} — {naira(i['amount'], lang)}")
         elif i["type"] == "agency":
             lines.append(f"- {'Hukuma' if lang == 'ha' else 'Agency'}: {i['name']} — {naira(i['amount'], lang)}")
+        elif i["type"] == "category":
+            lines.append(f"- {'Rabe' if lang == 'ha' else 'Category'}: {i['name']} — {naira(i['amount'], lang)}")
     return "\n".join(lines)
 
 
 def items_block(ret, lang):
     out = []
+    cats = [i for i in ret.items if i["type"] == "category"]
+    if cats:
+        out.append("Rabe-rabensa (2026):" if lang == "ha" else "Breakdown (2026):")
+        out += [f"• {i['name'] if lang == 'ha' else i.get('name_en', i['name'])}: {naira(i['amount'], lang)}" for i in cats]
     agencies = [i for i in ret.items if i["type"] == "agency"]
     projects = [i for i in ret.items if i["type"] == "project"]
     if agencies:
+        if out:
+            out.append("")
         out.append("Manyan hukumomin da ke karkashinta (2026):" if lang == "ha" else "Largest agencies (2026):")
         out += [f"• {i['name']}: {naira(i['amount'], lang)}" for i in agencies]
     if projects:
