@@ -181,6 +181,10 @@ def natlas_replay_checks():
          "topic": "social protection", "wants": "allocation", "year": 2026},
          "An ware ₦34.37 biliyan don kariyar zamantakewa a 2026, ciki har da manyan ayyuka ₦13.88 biliyan.", "₦34.37", True),
         # live Telegram, 11 Oct: a "no money" answer with no figure, while ₦7.89bn of state-wide PHC renovation existed
+        # live again after the first fix: N-ATLaS's hint "primary health center renovation projects" + "project_status"
+        (PHC_Q, {"english": PHC_Q, "topic": "primary health center renovation projects", "wants": "project_status", "year": 2025},
+         "No money from the 2025 state budget is designated to renovate primary health centers in Sokoto South LGA, and no money "
+         "has been spent yet according to the latest performance report.", "₦7.89", False),
         (PHC_Q, {"english": PHC_Q, "wants": "spending", "year": 2025},
          "No money from the 2025 state budget is specifically designated to renovate primary health centers in Sokoto South LGA, "
          "and no money has been spent yet according to the latest performance report.", "₦7.89", False),

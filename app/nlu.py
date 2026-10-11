@@ -372,7 +372,9 @@ class Understanding:
 
     def parse(self, text, english=None):
         t = norm(text)
-        both = t + " || " + norm(english or "")
+        # N-ATLaS's hint labels ("project_status", "ranking"...) arrive with the translation; the label itself must not
+        # count as the words "project" + "status" (live: a PHC-in-Sokoto-South question became a status count of 0 projects)
+        both = t + " || " + re.sub(r"\bproject_status\b", " ", norm(english or ""))
         p = Parsed(text=text)
         p.lang = self.detect_lang(t)
         p.years = sorted({int(y) for y in YEAR_RE.findall(both)})

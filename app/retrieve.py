@@ -390,6 +390,9 @@ class BudgetStore:
 
     def project_status(self, p):
         where, args, sha, sen = self._scope(p)
+        if p.lga_codes and (p.mda_codes or p.function_codes or p.project_terms) and not self.con.execute(
+                f"SELECT count(*) FROM projects WHERE {where} AND (approved_2026 > 0 OR revised_2025 > 0)", args).fetchone()[0]:
+            return self.lga_topic(p)     # nothing of that topic tagged to the LGA: say so and show the state-wide projects
         r = Retrieval("project_status", f"Matsayin ayyuka: {sha}", f"Project status: {sen}")
         pg = self.con.execute(f"SELECT min(source_page) FROM projects WHERE {where}", args).fetchone()[0] or 49
         one = lambda sql: self.con.execute(f"SELECT count(*), coalesce(sum(revised_2025),0), coalesce(sum(perf_2025_jan_sep),0), "

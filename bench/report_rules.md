@@ -1,6 +1,6 @@
 # Kasafi benchmark: rules (rules + retrieval, N-ATLaS off)
 
-**317/317 passed (100%)** in 5 s
+**317/317 passed (100%)** in 4 s
 
 ## By category
 
