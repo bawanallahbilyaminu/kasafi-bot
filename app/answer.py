@@ -66,14 +66,17 @@ def facts_block(ret, lang):
     for i in ret.items:
         if i["type"] == "project":
             extra = f" ({i['lga'].title()})" if i.get("lga") and i["lga"] != "State Wide" else ""
-            lines.append(f"- {'Aiki' if lang == 'ha' else 'Project'} ({b26}): {i['name']}{extra} — {naira(i['amount'], lang)}")
+            lines.append(f"- {'Aiki' if lang == 'ha' else 'Project'} ({b26}, {'kudin da aka ware' if lang == 'ha' else 'allocated'}): "
+                         f"{i['name']}{extra} — {naira(i['amount'], lang)}")
         elif i["type"] == "agency":
             lines.append(f"- {'Hukuma' if lang == 'ha' else 'Agency'} ({b26}): {i['name']} — {naira(i['amount'], lang)}")
         elif i["type"] == "status_project":
             lines.append(f"- {i['group_en'] if lang == 'en' else i['group_ha']} {i['name']} — 2025: {naira(i['budget_2025'], lang)}, "
                          f"{'an kashe' if lang == 'ha' else 'spent'}: {naira(i['spent_2025'], lang)}, 2026: {naira(i['amount'], lang)}")
         elif i["type"] == "category":
-            lines.append(f"- {'Rabe' if lang == 'ha' else 'Category'} ({b26}): {i['name']} — {naira(i['amount'], lang)}")
+            part = "wani bangare kawai, kudin da aka WARE (ba abin da aka kashe ba)" if lang == "ha" else \
+                "one part only, money ALLOCATED (not spent)"
+            lines.append(f"- {'Rabe' if lang == 'ha' else 'Category'} ({b26}; {part}): {i['name']} — {naira(i['amount'], lang)}")
     return "\n".join(lines)
 
 
@@ -178,10 +181,78 @@ def allowed_numbers(ret, lang):
     return allowed
 
 
+SPEND_WORDS = re.compile(r"\b(kashe|kashewa|spent|spending|expended|received)\b", re.I)
+NOT_SPENT = re.compile(r"ba (a|tare da an) kashe|not spent|without (any )?spending|nothing (was )?spent|unspent|no money spent", re.I)
+ALLOC_WORDS = re.compile(r"\b(ware|warewa|allocated|allocation|budgeted|approved|kasafin|budget)\b", re.I)
+MONEY = re.compile(r"₦\s?(\d[\d,]*(?:\.\d+)?)")
+
+
+def _money_sets(ret):
+    """Money values (as written in facts) split into spending figures and allocation figures."""
+    spend, alloc = set(), set()
+    for f in ret.facts:
+        if f.is_pct or f.is_count:
+            continue
+        label = f"{f.label_ha} {f.label_en} {f.key}".lower()
+        is_spend = any(w in label for w in ("kashe", "spent", "actual", "received", "karba", "karbi", "ytd", "trend_202"))
+        if f.key.startswith("trend_2026") or "approved" in label or NOT_SPENT.search(label):
+            is_spend = False
+        target = spend if is_spend else alloc
+        for l in ("ha", "en"):
+            for n in MONEY.findall(f.text(l)):
+                target.add(_n(n))
+    for i in ret.items:
+        if i.get("type") == "status_project":
+            for k, dest in (("spent_2025", spend), ("budget_2025", alloc), ("amount", alloc)):
+                if i.get(k) is not None:
+                    for l in ("ha", "en"):
+                        for n in MONEY.findall(naira(i[k], l)):
+                            dest.add(_n(n))
+        elif "amount" in i:
+            for l in ("ha", "en"):
+                for n in MONEY.findall(naira(i["amount"], l)):
+                    alloc.add(_n(n))
+    return spend, alloc
+
+
+ALLOC_CTX = re.compile(r"\b(ware|warewa|kasafi|kasafin|budget|budgeted|allocated|allocation|approved)\b", re.I)
+ALLOC_VERB = re.compile(r"\b(ware|warewa|allocated|allocation|budgeted|approved)\b", re.I)
+
+
+def claims_ok(draft, ret):
+    """A figure described as SPENT must be a spending figure, and one described as ALLOCATED must be an allocation.
+    Each figure is judged by the words just before it ("na kasafin ₦32.85 biliyan" = allocation), then by the verb
+    of its clause ("an kashe ₦16.22 biliyan" = spent). Catches real-but-mislabelled numbers, e.g. a 2026 category
+    allocation presented as money spent."""
+    spend, alloc = _money_sets(ret)
+    for clause in re.split(r"\.(?=\s|$)|[;\n]|:(?=\s)|\b(?:amma|but|while|whereas)\b", draft):   # not the "." in ₦34.37
+        neg = bool(NOT_SPENT.search(clause))
+        clause_spend = bool(SPEND_WORDS.search(clause)) and not neg
+        clause_alloc = bool(ALLOC_VERB.search(clause)) or neg
+        for m in MONEY.finditer(clause):
+            n = _n(m.group(1))
+            before = clause[max(0, m.start() - 32):m.start()]
+            if ALLOC_CTX.search(before) and not SPEND_WORDS.search(before):
+                expect = "alloc"
+            elif SPEND_WORDS.search(before) and not NOT_SPENT.search(before):
+                expect = "spend"
+            elif clause_spend and not clause_alloc:
+                expect = "spend"
+            elif clause_alloc and not clause_spend:
+                expect = "alloc"
+            else:
+                continue
+            if expect == "spend" and n not in spend and n in alloc:
+                return False, f"₦{n} presented as spent but it is an allocation"
+            if expect == "alloc" and n not in alloc and n in spend:
+                return False, f"₦{n} presented as allocated but it is spending"
+    return True, None
+
+
 def grounded(draft, ret, lang):
     allowed = allowed_numbers(ret, lang) | {str(i) for i in range(0, 11)} | {"100"}
     for n in NUM_IN_TEXT.findall(draft):
         k = _n(n)
         if k not in allowed:
             return False, n
-    return True, None
+    return claims_ok(draft, ret)

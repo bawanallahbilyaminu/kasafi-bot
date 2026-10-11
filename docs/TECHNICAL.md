@@ -166,7 +166,12 @@ OGG/Opus.
   This closed a real failure found in testing: a 2025 social-protection question was answered with a 2026
   sub-category allocation (₦8.75bn) instead of the ₦16.22bn spent in 2025. The number existed in the facts, so the
   number check alone passed it. `tests/test_questions.py` now checks this case.
-- Every project, agency and category line given to N-ATLaS carries its year ("Rabe (kasafin 2026): …").
+- Every project, agency and category line given to N-ATLaS carries its year and says it is an allocation
+  ("Rabe (kasafin 2026; wani bangare kawai, kudin da aka WARE): …").
+- **Spent vs allocated check (`answer.claims_ok`):** each ₦ figure in the draft is classified by the words around it
+  ("an kashe ₦…" = spent, "an ware / na kasafin ₦…" = allocation) and must match the kind of fact it came from.
+  A real allocation described as money spent (seen in testing: a 2026 sub-category written as "aka kashe") is
+  rejected and the verified template is sent instead.
 - `answer.grounded()` extracts every number from the draft. If any number isn't in the facts, the draft is
   rejected and logged (`grounding_fail`), and the template answer is sent.
 - Page citations are added by code, not by the model.

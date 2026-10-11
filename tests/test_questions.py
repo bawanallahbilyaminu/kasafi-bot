@@ -95,6 +95,33 @@ def year_checks():
     return fails
 
 
+def claim_checks():
+    """Spent vs allocated: a real number described as the wrong thing must be rejected (live failure: a 2026
+    sub-category allocation, ₦8.75bn, was written as 'aka kashe' for social protection)."""
+    from app.answer import grounded
+    e = Engine(load_models=False)
+    R = lambda q: e.store.retrieve(e.nlu.parse(q))
+    fr, er = R("Nawa aka ware wa social protection?"), R("Nawa aka kashe a fannin ilimi a 2025?")
+    sr = R("Ko ana samun ci gaba ga ayyukan social protection a jihar Sokoto?")
+    cases = [
+        (fr, "Kudaden da aka kashe na Social Protection (sauran) a cikin kasafin kudin Jihar Sokoto na 2026 shine ₦8.75 biliyan.", False),
+        (fr, "An ware ₦34.37 biliyan don kariyar zamantakewa a kasafin 2026. A 2025 an kashe ₦16.22 biliyan.", True),
+        (fr, "An ware ₦34.37 biliyan a 2026, amma zuwa watan Yuni an kashe ₦8.11 biliyan.", True),
+        (er, "A 2025 an kashe ₦38.22 biliyan a fannin ilimi daga kasafin ₦57.2 biliyan.", True),
+        (er, "An ware ₦38.22 biliyan ga ilimi a 2025.", False),
+        (sr, "An ware musu ₦7.47 biliyan a 2025 amma ba a kashe ko sisi ba.", True),
+    ]
+    fails = 0
+    for r, draft, want in cases:
+        ok, why = grounded(draft, r, "ha")
+        if ok != want:
+            print(f"FAIL claim: {draft[:70]} -> {ok} {why or ''}"); fails += 1
+    if e.nlu.parse("o ana samun shi gaba ga ayyuka na social protection a jihar sokoto.").intent != "project_status":
+        print("FAIL claim: ASR variant 'shi gaba' (ci gaba) not routed to project status"); fails += 1
+    print(f"claims: {len(cases) + 1 - fails}/{len(cases) + 1} passed")
+    return fails
+
+
 def onboarding_checks():
     import tempfile
     from app.logstore import LogStore
@@ -127,7 +154,7 @@ def onboarding_checks():
 
 
 def main():
-    speech_fails = speech_checks() + year_checks() + onboarding_checks()
+    speech_fails = speech_checks() + year_checks() + onboarding_checks() + claim_checks()
     e = Engine(load_models=False)
     fails = 0
     for q, want in CASES:

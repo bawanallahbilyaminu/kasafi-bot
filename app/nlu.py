@@ -102,7 +102,7 @@ WHAT_DONE = ["me ake", "me za a", "me aka", "mene ne ake", "wadanne", "wanne aik
 TOTAL_RE = (r"jimilla|gaba daya|baki daya|duka kasafi|dukkan kasafi|total budget|whole budget|overall|"
             r"kasafin (kudin )?jiha|state budget|budget of sokoto|sokoto (state )?budget|size of the budget|girman kasafi")
 STATUS_WORDS = ["an fara", "aka fara", "fara a", "ba a kammala", "ba a gama", "ba a kare", "ba su kare", "ba su kammala",
-                "bakari", "ba kari", "ci gaba", "ongoing", "continuing", "carried over", "carry over", "uncompleted",
+                "bakari", "ba kari", "ci gaba", "cigaba", "shi gaba", "chi gaba", "ci-gaba", "progress", "ongoing", "continuing", "carried over", "carry over", "uncompleted",
                 "incomplete", "not completed", "not finished", "abandoned", "watsi", "ba a fara", "sabbin ayyuka",
                 "sababbin ayyuka", "new projects", "started", "still running", "har yanzu", "kammala", "completed",
                 "finished", "dropped", "an daina", "stalled", "tsaya", "tsaye", "status"]

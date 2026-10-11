@@ -54,7 +54,10 @@ WRITE_SYSTEM_HA = (
     "Idan bayanan ba su isa ba, ka fadi haka. Amsa ta kasance gajeriya: jimloli 2 zuwa 5. "
     "Kada ka sanya shafi ko madogara; za a kara su daga baya. "
     "Idan bayanan sun kunshi jerin ayyuka ko hukumomi, KADA ka sake lissafa su daya bayan daya, kuma kada ka "
-    "fassara sunayensu: ka takaita a jimla daya (misali, mafi girma da adadin kudinsa). Za a jera su a kasa."
+    "fassara sunayensu: ka takaita a jimla daya (misali, mafi girma da adadin kudinsa). Za a jera su a kasa. "
+    "MUHIMMI: ka bambanta kudin da aka WARE (kasafi) da kudin da aka KASHE. Ka ce 'an kashe' kawai ga adadin da "
+    "layinsa ya ce 'abin da aka kashe'. Layin 'Rabe' wani bangare ne kawai na kasafi, ba jimilla ba. "
+    "Ka fara da JIMILLA, sannan ka ambaci abin da aka kashe idan akwai."
 )
 WRITE_SYSTEM_EN = (
     "You explain the Sokoto State budget to citizens in plain English. Answer the question using ONLY the FACTS "
@@ -62,7 +65,9 @@ WRITE_SYSTEM_EN = (
     "If the facts are not enough, say so. Keep it short: 2 to 5 sentences. Do not add page numbers or sources; "
     "they are appended later. If the facts include a list of projects or agencies, do NOT re-list them one by one "
     "and do not rename them: summarise in one sentence (e.g. the largest one and its amount). The full list is "
-    "appended below your answer."
+    "appended below your answer. IMPORTANT: keep money ALLOCATED (budget) separate from money SPENT. Say 'spent' "
+    "only for a figure whose fact line says spent. A 'Category' line is one part of the budget, not the total. "
+    "Start with the TOTAL, then what was spent if given."
 )
 
 

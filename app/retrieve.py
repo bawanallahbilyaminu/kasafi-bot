@@ -286,13 +286,14 @@ class BudgetStore:
                 if mr and mr["approved_2026"]:
                     r.add(Fact(f"{m}_2026", mr["approved_2026"], f"{MEASURE_HA[m].capitalize()} (2026)",
                                f"{MEASURE_EN[m].capitalize()} (2026)", mr["source_page"]))
-        if not self.add_perf_2025(r, "exp_function", "total", code, "Jimilla", "Total") and row["revised_2025"]:
+        tot_ha, tot_en = f"Jimillar {FUNC_HA.get(code, name_en).lower()}", f"{name_en} total"
+        if not self.add_perf_2025(r, "exp_function", "total", code, tot_ha, tot_en) and row["revised_2025"]:
             r.add(Fact("func_rev2025", row["revised_2025"], "Kasafin 2025", "2025 revised budget", row["source_page"]))
             r.add(Fact("func_spent2025", row["perf_2025_jan_sep"], "Abin da aka kashe Jan-Sat 2025",
                        "Spent Jan-Sep 2025", row["source_page"]))
             r.add(Fact("func_pct2025", pct(row["perf_2025_jan_sep"], row["revised_2025"]), "Kaso da aka aiwatar (2025)",
                        "2025 implementation rate", row["source_page"], is_pct=True))
-        self.add_perf_2026(r, "exp_function", "total", code, "Jimilla", "Total")
+        self.add_perf_2026(r, "exp_function", "total", code, tot_ha, tot_en)
         # sub-categories (e.g. old age / pensions, disability, unemployment under social protection)
         if len(code) == 3:
             subs = self.con.execute("SELECT * FROM line_items WHERE kind='exp_function' AND measure='total' AND length(code)=4 "
