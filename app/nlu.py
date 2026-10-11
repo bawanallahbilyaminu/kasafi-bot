@@ -220,6 +220,61 @@ GENERIC_NAME_WORDS = {
 }
 
 
+# Abbreviations people use for ministries and agencies. Generated ones (initials of the official name) are added in
+# Understanding.__init__; these are the ones the names don't give (older names, "S" for Sokoto, everyday short forms).
+ABBREVIATIONS = {
+    "023800000000": ["mbep", "mobep", "mbed", "mobed", "mbepd"],
+    "022000000000": ["mof", "smof", "mofin"],
+    "056900000000": ["mhe", "mohe", "smohe"],
+    "051700000000": ["moe", "smoe"],
+    "052100000000": ["moh", "smoh"],
+    "051400000000": ["mowca", "mwca", "mowa", "mwa", "mowasd"],
+    "023400000000": ["mow", "mowks", "smow"],
+    "025200000000": ["mowr", "mwr", "smowr"],
+    "021500000000": ["moa", "manr", "moanr", "smoa"],
+    "032600000000": ["moj", "smoj"],
+    "012300000000": ["moi", "smoi"],
+    "025300000000": ["molh", "mlh", "moldh"],
+    "055100000000": ["molg", "mlgc", "molgc", "mlgca", "molgca"],
+    "055600000000": ["moswcd", "mswcd", "mosw"],
+    "051300000000": ["mysd", "moysd", "moys"],
+    "053500000000": ["moenv", "menv", "smoenv"],
+    "022200000000": ["mci", "moci"],
+    "023600000000": ["mct", "moct"],
+    "023100000000": ["mepr", "moepr"],
+    "023300000000": ["msmnr", "mosmnr"],
+    "017200000000": ["mra", "mora"],
+    "012400000000": ["mha", "moha"],
+    "016700000000": ["msd", "mosd"],
+    "017000000000": ["mcss", "mocss"],
+    "026800000000": ["mlfd", "molfd"],
+    "027900000000": ["mide", "moide"],
+    "028900000000": ["msaed", "mosaed"],
+    "022800000000": ["mst"],          # not "most" (an everyday word)
+    "022900000000": ["mot"],
+    "012500000000": ["hos", "ohos", "ohcs"],
+    "016100000000": ["ssg", "ossg"],
+    "011200000000": ["ssha", "shoa", "sosha"],
+    "014800000000": ["siec", "ssiec", "sosiec"],
+    "014000000000": ["oag", "oaug"],
+    "014700000000": ["csc"],
+    "014900000000": ["lgsc"],
+    "025000000000": ["frc"],
+    "052100300100": ["phcda", "sphcda", "ssphcda", "sphcb"],
+    "022000800100": ["bir", "sbir", "sirs"],
+    "027900200100": ["sictda"],
+    "012300300100": ["rtv"],
+    "025210300100": ["rwsa", "ruwassa"],
+    "052110200100": ["hsmb"],
+    "056900400100": ["ssu"],
+    "051700100100": ["mobe", "mbe", "mobse", "mbse"],
+}
+# initials that are also everyday words: never treated as an abbreviation unless listed above on purpose
+ABBR_BLOCK = {"aid", "art", "ace", "same", "mow", "lga", "feb", "dim", "loa", "caw", "sane", "dep", "ema", "sso", "ifa", "nch",
+              "shc", "ame", "ane", "pga", "ldp", "most", "mot", "dre", "drr", "odg", "ohs", "ohw", "pda", "prp", "rma", "sip",
+              "slb", "smc", "snc", "scm", "sgo", "ssm", "zea", "aam", "dsm", "dsp", "dim", "hbs", "gpp", "ecc", "iec", "amc"}
+
+
 class Understanding:
     def __init__(self, budget_db):
         con = sqlite3.connect(budget_db)
@@ -261,6 +316,33 @@ class Understanding:
                                   | {w for ws in FUNCTION_WORDS.values() for w in ws if " " not in w and len(w) >= 5})
         self.mda_unique = {t: next(iter(cs)) for t, cs in freq.items()
                            if len(cs) == 1 and len(t) >= 5 and t not in GENERIC_NAME_WORDS and t not in places}
+        self.abbr = self._abbreviations()
+
+    def _abbreviations(self):
+        """{abbreviation: code}: initials of every official name ("Ministry of Budget and Economic Planning" -> mbep,
+        mobep; "Sokoto State University" -> ssu), kept only when unique and not an everyday word, plus ABBREVIATIONS."""
+        skip = {"of", "and", "for", "the", "in"}
+        cand = {}
+        for code, name in self.mdas:
+            n = re.sub(r"\bmin\b\.?", "ministry", re.sub(r"\(.*?\)", "", norm(name)).replace("&", " "))
+            w = [x for x in re.findall(r"[a-z]+", n) if x not in skip]
+            if len(w) < 2:
+                continue
+            ministry_level = code[4:] == "0" * 8
+            outs = {"".join(x[0] for x in w)}
+            if w[0] == "ministry":
+                outs.add("mo" + "".join(x[0] for x in w[1:]))
+            w2 = [x for x in w if x not in ("sokoto", "state")]
+            if len(w2) >= 2:
+                outs.add("".join(x[0] for x in w2))
+            for a in outs:
+                if len(a) >= (3 if ministry_level else 4):
+                    cand.setdefault(a, set()).add(code[:4] + "0" * 8 if ministry_level else code)
+        out = {a: next(iter(cs)) for a, cs in cand.items() if len(cs) == 1 and a not in ABBR_BLOCK}
+        for code, al in ABBREVIATIONS.items():
+            for a in al:
+                out[a] = code
+        return out
 
     def detect_lang(self, t):
         words = re.findall(r"[a-z']+", t)
@@ -287,6 +369,7 @@ class Understanding:
             if has_word(t, ha_):
                 t = t + " " + en_
         qtok = set(re.findall(r"[a-z']+", t))
+        abbr_hits = {self.abbr[w] for w in qtok if w in self.abbr}
         sec = [(code, w) for code, ws in SECTOR_WORDS.items() for w in ws if has_word(t, w)]
         sec = [(c, w) for c, w in sec if not any(w != w2 and w in w2 for _, w2 in sec)]
         names = {}
@@ -307,6 +390,8 @@ class Understanding:
             if code in names:
                 name_toks |= toks
         sec = [(c, w) for c, w in sec if c in names or not set(re.findall(r"[a-z']+", w)) <= name_toks]
+        for c in abbr_hits:
+            names[c] = max(names.get(c, 0), 10)
         scores = dict(names)
         for c, w in sec:
             scores[c] = max(scores.get(c, 0), 2.5 + len(w.split()))

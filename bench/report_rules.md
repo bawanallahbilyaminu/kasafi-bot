@@ -1,12 +1,12 @@
 # Kasafi benchmark: rules (rules + retrieval, N-ATLaS off)
 
-**322/322 passed (100%)** in 6 s
+**334/334 passed (100%)** in 6 s
 
 ## By category
 
 | Group | Passed | Rate |
 |---|---|---|
-| agency | 21/21 | 100% |
+| agency | 32/32 | 100% |
 | alloc | 52/52 | 100% |
 | analysis | 25/25 | 100% |
 | complex | 8/8 | 100% |
@@ -22,7 +22,7 @@
 | project | 12/12 | 100% |
 | rate2025 | 18/18 | 100% |
 | revenue | 8/8 | 100% |
-| robust | 25/25 | 100% |
+| robust | 26/26 | 100% |
 | spent2025 | 36/36 | 100% |
 | spent2026 | 24/24 | 100% |
 
@@ -31,16 +31,16 @@
 | Group | Passed | Rate |
 |---|---|---|
 | 1 | 89/89 | 100% |
-| 2 | 126/126 | 100% |
-| 3 | 80/80 | 100% |
+| 2 | 137/137 | 100% |
+| 3 | 81/81 | 100% |
 | 4 | 27/27 | 100% |
 
 ## By language
 
 | Group | Passed | Rate |
 |---|---|---|
-| en | 162/162 | 100% |
-| ha | 160/160 | 100% |
+| en | 171/171 | 100% |
+| ha | 163/163 | 100% |
 
 ## Failed checks
 

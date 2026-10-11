@@ -9,6 +9,7 @@ Each question records what a correct answer needs:
 Run:  python bench/build_questions.py      -> bench/questions.jsonl
 """
 import json
+import re
 import random
 import sqlite3
 import sys
@@ -282,6 +283,15 @@ for q, code in [("How much is allocated to Science and Technical in 2026", "0228
                 ("How much is allocated to Finance in 2026", "022000000000"),
                 ("Nawa aka ware wa kimiyya da fasaha a 2026?", "022800000000")]:
     add("agency", 2, "ha" if "Nawa" in q else "en", q, ["mda"], mda=code, figures=fig(admin(code)))
+
+# abbreviations people use (asked for, 12 Oct)
+for q, code in [("How much is MoWCA getting in 2026?", "051400000000"), ("MBEP budget 2026", "023800000000"),
+                ("Nawa aka ware wa MOF a 2026?", "022000000000"), ("MHE allocation 2026", "056900000000"),
+                ("Nawa aka ware wa SMOH?", "052100000000"), ("MOWR budget", "025200000000"), ("SSU budget 2026", "056900400100"),
+                ("How much for PHCDA in 2026?", "052100300100"), ("Kasafin RUWASSA", "025210300100"),
+                ("What is the SSG budget?", "016100000000"), ("BIR 2026 allocation", "022000800100")]:
+    add("agency", 2, "ha" if re.search(r"Nawa|Kasafin", q) else "en", q, ["mda"], mda=code, figures=fig(admin(code)))
+add("robust", 3, "en", "How much is allocated to most ministries?", ["ranking", "overview", "mda", "none"])   # "most" is not MoST
 
 # ------------------------------------------------------------------ multi-entity (known limitation: one subject per question)
 for q, lang in [("Compare health and education budgets in 2026", "en"), ("Nawa aka ware wa lafiya da ilimi a 2026?", "ha"),

@@ -316,6 +316,18 @@
 {"id": "agency-019", "category": "agency", "difficulty": 2, "lang": "en", "question": "How much is allocated to Home Affairs in 2026", "intents": ["mda"], "mda": "012400000000", "figures": ["₦6.11 biliyan", "₦6.11 billion"]}
 {"id": "agency-020", "category": "agency", "difficulty": 2, "lang": "en", "question": "How much is allocated to Finance in 2026", "intents": ["mda"], "mda": "022000000000", "figures": ["₦40.27 biliyan", "₦40.27 billion"]}
 {"id": "agency-021", "category": "agency", "difficulty": 2, "lang": "ha", "question": "Nawa aka ware wa kimiyya da fasaha a 2026?", "intents": ["mda"], "mda": "022800000000", "figures": ["₦11.69 biliyan", "₦11.69 billion"]}
+{"id": "agency-022", "category": "agency", "difficulty": 2, "lang": "en", "question": "How much is MoWCA getting in 2026?", "intents": ["mda"], "mda": "051400000000", "figures": ["₦7.24 biliyan", "₦7.24 billion"]}
+{"id": "agency-023", "category": "agency", "difficulty": 2, "lang": "en", "question": "MBEP budget 2026", "intents": ["mda"], "mda": "023800000000", "figures": ["₦5.32 biliyan", "₦5.32 billion"]}
+{"id": "agency-024", "category": "agency", "difficulty": 2, "lang": "ha", "question": "Nawa aka ware wa MOF a 2026?", "intents": ["mda"], "mda": "022000000000", "figures": ["₦40.27 biliyan", "₦40.27 billion"]}
+{"id": "agency-025", "category": "agency", "difficulty": 2, "lang": "en", "question": "MHE allocation 2026", "intents": ["mda"], "mda": "056900000000", "figures": ["₦33.99 biliyan", "₦33.99 billion"]}
+{"id": "agency-026", "category": "agency", "difficulty": 2, "lang": "ha", "question": "Nawa aka ware wa SMOH?", "intents": ["mda"], "mda": "052100000000", "figures": ["₦124.41 biliyan", "₦124.41 billion"]}
+{"id": "agency-027", "category": "agency", "difficulty": 2, "lang": "en", "question": "MOWR budget", "intents": ["mda"], "mda": "025200000000", "figures": ["₦44.99 biliyan", "₦44.99 billion"]}
+{"id": "agency-028", "category": "agency", "difficulty": 2, "lang": "en", "question": "SSU budget 2026", "intents": ["mda"], "mda": "056900400100", "figures": ["₦5.71 biliyan", "₦5.71 billion"]}
+{"id": "agency-029", "category": "agency", "difficulty": 2, "lang": "en", "question": "How much for PHCDA in 2026?", "intents": ["mda"], "mda": "052100300100", "figures": ["₦7.12 biliyan", "₦7.12 billion"]}
+{"id": "agency-030", "category": "agency", "difficulty": 2, "lang": "ha", "question": "Kasafin RUWASSA", "intents": ["mda"], "mda": "025210300100", "figures": ["₦803 miliyan", "₦803 million"]}
+{"id": "agency-031", "category": "agency", "difficulty": 2, "lang": "en", "question": "What is the SSG budget?", "intents": ["mda"], "mda": "016100000000", "figures": ["₦40.4 biliyan", "₦40.4 billion"]}
+{"id": "agency-032", "category": "agency", "difficulty": 2, "lang": "en", "question": "BIR 2026 allocation", "intents": ["mda"], "mda": "022000800100", "figures": ["₦1.07 biliyan", "₦1.07 billion"]}
+{"id": "robust-026", "category": "robust", "difficulty": 3, "lang": "en", "question": "How much is allocated to most ministries?", "intents": ["ranking", "overview", "mda", "none"]}
 {"id": "multi-001", "category": "multi", "difficulty": 4, "lang": "en", "question": "Compare health and education budgets in 2026", "intents": ["mda", "comparison", "function", "overview"], "multi": true}
 {"id": "multi-002", "category": "multi", "difficulty": 4, "lang": "ha", "question": "Nawa aka ware wa lafiya da ilimi a 2026?", "intents": ["mda", "comparison", "function", "overview"], "multi": true}
 {"id": "multi-003", "category": "multi", "difficulty": 4, "lang": "en", "question": "How much for services, agriculture and industry?", "intents": ["mda", "comparison", "function", "overview"], "multi": true}
