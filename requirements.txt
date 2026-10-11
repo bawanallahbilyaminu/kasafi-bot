@@ -1,0 +1,14 @@
+# Install PyTorch with CUDA FIRST (see README), then:  pip install -r requirements.txt
+transformers>=4.44,<5
+accelerate>=0.33
+bitsandbytes>=0.43.2      # 4-bit N-ATLaS on an 8 GB GPU (Windows supported from 0.43)
+sentencepiece
+numpy
+python-telegram-bot==21.6
+fastapi==0.115.0
+uvicorn==0.30.6
+python-multipart
+twilio==9.3.0
+requests
+openai>=1.40              # only for LLM_BACKEND=openai (Colab / vLLM backup)
+pdfplumber==0.11.4        # only to rebuild the budget database from PDF
