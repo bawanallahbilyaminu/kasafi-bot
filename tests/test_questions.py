@@ -124,7 +124,14 @@ def claim_checks():
         print("FAIL claim: 'how many projects ... for IDPs' not routed to project status"); fails += 1
     if e.nlu.parse("o ana samun shi gaba ga ayyuka na social protection a jihar sokoto.").intent != "project_status":
         print("FAIL claim: ASR variant 'shi gaba' (ci gaba) not routed to project status"); fails += 1
-    print(f"claims: {len(cases) + 3 - fails}/{len(cases) + 3} passed")
+    # "nawa" before the verb is "how much", not "how many": money questions about works/projects stay money answers
+    routing = [("Nawa aka ware wa ayyukan ilimi a 2026?", "mda"), ("Ma'aikatar ayyuka nawa aka ware mata?", "mda"),
+               ("Nawa aka ware wa ayyukan lafiya?", "mda"), ("Ayyuka nawa ne a Tambuwal?", "project_status")]
+    for q, want in routing:
+        got = e.nlu.parse(q).intent
+        if got != want:
+            print(f"FAIL claim: '{q}' routed to {got}, expected {want}"); fails += 1
+    print(f"claims: {len(cases) + 3 + len(routing) - fails}/{len(cases) + 3 + len(routing)} passed")
     return fails
 
 
