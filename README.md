@@ -90,6 +90,9 @@ with `python scripts\merge_logs.py <colab_log.sqlite>`.
 python -I pipeline\parse_budget.py   data\raw\budget2026.pdf data\db\budget.sqlite
 python -I pipeline\parse_projects.py data\raw\budget2026.pdf data\db\budget.sqlite 49 75
 python -I pipeline\validate.py       data\db\budget.sqlite
+:: quarterly implementation reports (add new ones as they are published)
+python -I pipeline\parse_reports.py   data\db\budget.sqlite data\raw\perf2025q2.pdf data\raw\perf2025q3.pdf data\raw\perf2025q4.pdf data\raw\perf2026q2.pdf
+python -I pipeline\validate_reports.py data\db\budget.sqlite
 ```
 
 ## Project layout

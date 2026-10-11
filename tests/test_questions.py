@@ -15,14 +15,14 @@ from app.engine import Engine  # noqa: E402
 
 CASES = [  # question, expected text in the answer
     ("Nawa aka ware wa lafiya a 2026?", "₦124.41 biliyan"),
-    ("Nawa aka kashe a fannin ilimi a 2025?", "₦29.89 biliyan"),
+    ("Nawa aka kashe a fannin ilimi a 2025?", "₦38.22 biliyan"),
     ("Wadanne ayyuka ne za a yi a Tambuwal?", "Karamar Hukumar Tambuwal"),
     ("Ayyukan rijiyoyin burtsatse nawa ne a kasafin?", "borehole"),
     ("Nawa ne kudaden shigar jiha?", "₦389.32 biliyan"),
     ("How much is allocated to agriculture in 2026?", "₦17.05 billion"),
     ("Nawa ne albashin ma'aikatar ilimi?", "₦12.12 biliyan"),
     ("Menene jimillar kasafin kudin 2026?", "₦758.7 biliyan"),
-    ("How much did SUBEB spend in 2025?", "₦768.13 million"),
+    ("How much did SUBEB spend in 2025?", "₦4.58 billion"),
     ("Nawa ne bashin da jihar za ta biya?", "₦19.76 biliyan"),
     ("Ma'aikatar ayyuka nawa aka ware mata?", "Ministry of Works"),
     ("Nawa aka ware wa harkokin mata?", "Ministry for Women Affairs"),
@@ -39,6 +39,9 @@ CASES = [  # question, expected text in the answer
     ("Which ministries had the lowest capital implementation in 2025?", "1. State Judiciary"),
     ("Wace karamar hukuma ce ta fi samun kudi?", "1. Wamakko"),
     ("Kasafin lafiya ya karu idan aka kwatanta da 2025?", "kashi 168.6"),
+    ("Nawa aka kashe daga kasafin 2026 zuwa yanzu?", "Janairu-Yuni 2026"),
+    ("Nawa aka ware wa lafiya a 2026?", "kashi 10.6"),
+    ("How much IGR did the state collect in 2025?", "₦20.58 billion"),
 ]
 
 

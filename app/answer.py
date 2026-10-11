@@ -29,13 +29,31 @@ NOT_FOUND_EN = ("Sorry, I couldn't tell which ministry, sector or LGA you mean. 
                 "agriculture in 2026?\" or \"What projects are in Wamakko?\"")
 
 
+DOC_HA = {"budget2026": "Kasafin Kudin Jihar Sokoto na 2026 (wanda aka amince)"}
+DOC_EN = {"budget2026": "Sokoto State 2026 Approved Budget"}
+
+
+def _doc(src, lang):
+    if src in DOC_HA:
+        return DOC_HA[src] if lang == "ha" else DOC_EN[src]
+    y, q = src[:4], src[-1]
+    return (f"Rahoton aiwatar da kasafi na Q{q} {y}" if lang == "ha" else f"Budget Implementation Report Q{q} {y}")
+
+
 def citation(ret, lang):
-    pages = sorted(p for p in ret.pages if p)
-    pages += sorted({i["page"] for i in ret.items if i.get("page")} - set(pages))
-    pg = ", ".join(str(p) for p in pages[:6])
-    if lang == "ha":
-        return f"📄 Madogara: {BUDGET_TITLE_HA}" + (f", shafi {pg}" if pg else "")
-    return f"📄 Source: {BUDGET_TITLE_EN}" + (f", page {pg}" if pg else "")
+    by = {}
+    for f in ret.facts:
+        if f.page:
+            by.setdefault(getattr(f, "source", "budget2026"), set()).add(f.page)
+    for i in ret.items:
+        if i.get("page"):
+            by.setdefault("budget2026", set()).add(i["page"])
+    if not by:
+        return ""
+    word = "shafi" if lang == "ha" else "page"
+    parts = [f"{_doc(src, lang)}, {word} {', '.join(str(x) for x in sorted(pg)[:6])}"
+             for src, pg in sorted(by.items(), key=lambda kv: kv[0] != "budget2026")]
+    return ("📄 Madogara: " if lang == "ha" else "📄 Source: ") + "; ".join(parts)
 
 
 def facts_block(ret, lang):
@@ -109,7 +127,7 @@ def template_answer(ret, lang):
         return NOT_FOUND_HA if lang == "ha" else NOT_FOUND_EN
     head = {"ha": f"*{ret.subject_ha}*" if ret.subject_ha else "", "en": f"*{ret.subject_en}*" if ret.subject_en else ""}[lang]
     body = []
-    for f in ret.facts[:10]:
+    for f in ret.facts[:14]:
         body.append(f"• {f.text(lang)}")
     if ret.items:
         body.append("\n" + items_block(ret, lang))

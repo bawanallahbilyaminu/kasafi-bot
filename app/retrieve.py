@@ -28,6 +28,11 @@ FUNC_HA = {"701": "Ayyukan gwamnati na gaba daya", "703": "Tsaro da oda", "704":
 CAT_HA = {"7101": "Nakasa da rashin lafiya", "7102": "Fansho da tsofaffi", "7103": "Iyalan mamata",
           "7104": "Iyali da yara", "7105": "Rashin aikin yi", "7106": "Gidaje", "7107": "Marasa galihu",
           "7109": "Sauran kariyar zamantakewa"}
+PERIOD_HA = {"2025Q4": "duk shekarar 2025", "2025Q3": "Janairu-Satumba 2025", "2025Q2": "Janairu-Yuni 2025",
+             "2026Q1": "Janairu-Maris 2026", "2026Q2": "Janairu-Yuni 2026", "2026Q3": "Janairu-Satumba 2026",
+             "2026Q4": "duk shekarar 2026"}
+PERIOD_EN = {"2025Q4": "full year 2025", "2025Q3": "Jan-Sep 2025", "2025Q2": "Jan-Jun 2025", "2026Q1": "Jan-Mar 2026",
+             "2026Q2": "Jan-Jun 2026", "2026Q3": "Jan-Sep 2026", "2026Q4": "full year 2026"}
 SECTOR_HA = {"Administration Sector": "gudanarwa", "Economic Sector": "tattalin arziki", "Law and Justice": "shari'a",
              "Social Sector": "walwalar jama'a (ilimi, lafiya da sauransu)"}
 
@@ -41,6 +46,7 @@ class Fact:
     page: int
     is_pct: bool = False
     is_count: bool = False
+    source: str = "budget2026"   # budget2026 | 2025Q4 | 2026Q2 ...
 
     def text(self, lang):
         if self.is_count:
@@ -70,6 +76,42 @@ class BudgetStore:
     def __init__(self, path):
         self.con = sqlite3.connect(str(path), check_same_thread=False)
         self.con.row_factory = sqlite3.Row
+        has = self.con.execute("SELECT name FROM sqlite_master WHERE name='perf_items'").fetchone()
+        rep = lambda y: self.con.execute("SELECT max(report) FROM perf_items WHERE year=? AND kind='exp_admin'",
+                                         (y,)).fetchone()[0] if has else None
+        self.full_2025 = rep(2025)     # e.g. 2025Q4 (full year)
+        self.latest_2026 = rep(2026)   # e.g. 2026Q2 (Jan-Jun)
+
+    def perf(self, kind, measure, code, report):
+        if not report:
+            return None
+        return self.con.execute("SELECT * FROM perf_items WHERE report=? AND kind=? AND measure=? AND code=?",
+                                (report, kind, measure, code)).fetchone()
+
+    def add_perf_2025(self, r, kind, measure, code, mha, men):
+        """Full-year 2025 implementation from the Q4 report. Returns False if not available."""
+        q = self.perf(kind, measure, code, self.full_2025)
+        if not q or not q["budget_revised"]:
+            return False
+        per_ha, per_en = PERIOD_HA.get(self.full_2025, self.full_2025), PERIOD_EN.get(self.full_2025, self.full_2025)
+        r.add(Fact(f"{measure}_final2025", q["budget_revised"], f"{mha} — kasafin 2025 na karshe", f"{men} — 2025 final budget",
+                   q["source_page"], source=self.full_2025))
+        r.add(Fact(f"{measure}_spent2025", q["ytd_actual"], f"{mha} — abin da aka kashe ({per_ha})", f"{men} — spent ({per_en})",
+                   q["source_page"], source=self.full_2025))
+        r.add(Fact(f"{measure}_pct2025", pct(q["ytd_actual"], q["budget_revised"]), f"{mha} — kaso da aka aiwatar a 2025",
+                   f"{men} — 2025 implementation rate", q["source_page"], is_pct=True, source=self.full_2025))
+        return True
+
+    def add_perf_2026(self, r, kind, measure, code, mha, men):
+        q = self.perf(kind, measure, code, self.latest_2026)
+        if not q or not q["budget_revised"]:
+            return False
+        per_ha, per_en = PERIOD_HA.get(self.latest_2026, self.latest_2026), PERIOD_EN.get(self.latest_2026, self.latest_2026)
+        r.add(Fact(f"{measure}_spent2026", q["ytd_actual"], f"{mha} — abin da aka kashe a 2026 ({per_ha})",
+                   f"{men} — spent in 2026 ({per_en})", q["source_page"], source=self.latest_2026))
+        r.add(Fact(f"{measure}_pct2026", pct(q["ytd_actual"], q["budget_revised"]), f"{mha} — kaso na kasafin 2026 da aka kashe zuwa yanzu",
+                   f"{men} — share of the 2026 budget spent so far", q["source_page"], is_pct=True, source=self.latest_2026))
+        return True
 
     def admin_row(self, code, measure="total"):
         return self.con.execute("SELECT * FROM line_items WHERE kind='exp_admin' AND measure=? AND code=?",
@@ -87,11 +129,13 @@ class BudgetStore:
         for m in ("personnel", "overhead", "debt_service", "capital"):
             row = self.con.execute("SELECT * FROM line_items WHERE kind='exp_admin' AND measure=? AND code=''", (m,)).fetchone()
             r.add(Fact(f"{m}_2026", row["approved_2026"], MEASURE_HA[m].capitalize(), MEASURE_EN[m].capitalize(), row["source_page"]))
-        r.add(Fact("total_2025", tot["revised_2025"], "Kasafin 2025 (wanda aka sabunta)", "2025 revised budget", tot["source_page"]))
-        r.add(Fact("spent_2025", tot["perf_2025_jan_sep"], "Abin da aka kashe Janairu-Satumba 2025",
-                   "Spent Jan-Sep 2025", tot["source_page"]))
-        r.add(Fact("perf_2025", pct(tot["perf_2025_jan_sep"], tot["revised_2025"]), "Kaso da aka aiwatar (Jan-Sat 2025)",
-                   "2025 implementation rate (Jan-Sep)", tot["source_page"], is_pct=True))
+        if not self.add_perf_2025(r, "exp_admin", "total", "", "Jimillar kasafi", "Total budget"):
+            r.add(Fact("total_2025", tot["revised_2025"], "Kasafin 2025 (wanda aka sabunta)", "2025 revised budget", tot["source_page"]))
+            r.add(Fact("spent_2025", tot["perf_2025_jan_sep"], "Abin da aka kashe Janairu-Satumba 2025",
+                       "Spent Jan-Sep 2025", tot["source_page"]))
+            r.add(Fact("perf_2025", pct(tot["perf_2025_jan_sep"], tot["revised_2025"]), "Kaso da aka aiwatar (Jan-Sat 2025)",
+                       "2025 implementation rate (Jan-Sep)", tot["source_page"], is_pct=True))
+        self.add_perf_2026(r, "exp_admin", "total", "", "Jimillar kasafi", "Total budget")
         sectors = self.con.execute("SELECT * FROM line_items WHERE kind='exp_admin' AND measure='total' AND length(code)=12 "
                                    "AND substr(code,3)='0000000000' ORDER BY approved_2026 DESC").fetchall()
         for s in sectors:
@@ -125,9 +169,12 @@ class BudgetStore:
                 if row and row["approved_2026"]:
                     r.add(Fact(f"{m}_2026", row["approved_2026"], f"{MEASURE_HA[m].capitalize()} (2026)",
                                f"{MEASURE_EN[m].capitalize()} (2026)", row["source_page"]))
-        # performance: 2025 revised vs actual Jan-Sep, for the asked measure (default total + capital)
+        # performance: full-year 2025 from the Q4 report (fallback: Jan-Sep from the 2026 budget) + 2026 so far
+        meas_perf = measures if measures != ["total"] else ["total", "capital"]
         if perf_block:
-            for m in (measures if measures != ["total"] else ["total", "capital"]):
+            for m in meas_perf:
+                if self.add_perf_2025(r, "exp_admin", m, code, MEASURE_HA[m].capitalize(), MEASURE_EN[m].capitalize()):
+                    continue
                 row = self.admin_row(code, m)
                 if row and row["revised_2025"]:
                     r.add(Fact(f"{m}_rev2025", row["revised_2025"], f"{MEASURE_HA[m].capitalize()} — kasafin 2025",
@@ -138,6 +185,9 @@ class BudgetStore:
                     r.add(Fact(f"{m}_pct2025", pct(row["perf_2025_jan_sep"], row["revised_2025"]),
                                f"{MEASURE_HA[m].capitalize()} — kaso da aka aiwatar",
                                f"{MEASURE_EN[m].capitalize()} — implementation rate", row["source_page"], is_pct=True))
+        if 2026 in years or (p.performance and 2025 not in p.years):
+            for m in (meas_perf if p.performance else measures[:1]):
+                self.add_perf_2026(r, "exp_admin", m, code, MEASURE_HA[m].capitalize(), MEASURE_EN[m].capitalize())
         if p.compare and tot["revised_2025"]:
             ch = pct(tot["approved_2026"] - tot["revised_2025"], tot["revised_2025"])
             if not any(f.key == "total_rev2025" for f in r.facts):
@@ -180,12 +230,13 @@ class BudgetStore:
                 if mr and mr["approved_2026"]:
                     r.add(Fact(f"{m}_2026", mr["approved_2026"], f"{MEASURE_HA[m].capitalize()} (2026)",
                                f"{MEASURE_EN[m].capitalize()} (2026)", mr["source_page"]))
-        if row["revised_2025"]:
+        if not self.add_perf_2025(r, "exp_function", "total", code, "Jimilla", "Total") and row["revised_2025"]:
             r.add(Fact("func_rev2025", row["revised_2025"], "Kasafin 2025", "2025 revised budget", row["source_page"]))
             r.add(Fact("func_spent2025", row["perf_2025_jan_sep"], "Abin da aka kashe Jan-Sat 2025",
                        "Spent Jan-Sep 2025", row["source_page"]))
             r.add(Fact("func_pct2025", pct(row["perf_2025_jan_sep"], row["revised_2025"]), "Kaso da aka aiwatar (2025)",
                        "2025 implementation rate", row["source_page"], is_pct=True))
+        self.add_perf_2026(r, "exp_function", "total", code, "Jimilla", "Total")
         # sub-categories (e.g. old age / pensions, disability, unemployment under social protection)
         if len(code) == 3:
             subs = self.con.execute("SELECT * FROM line_items WHERE kind='exp_function' AND measure='total' AND length(code)=4 "
@@ -288,9 +339,20 @@ class BudgetStore:
         base = ("FROM line_items WHERE kind='exp_admin' AND measure=? AND length(code)=12 AND substr(code,5)='00000000' "
                 "AND substr(code,3)!='0000000000'")
         if m == "implementation":
-            meas = "capital"
+            rep = self.latest_2026 if (2026 in p.years and 2025 not in p.years and self.latest_2026) else self.full_2025
+            if rep:
+                rows = self.con.execute(
+                    f"SELECT name, 100.0*ytd_actual/budget_revised v, source_page FROM perf_items WHERE report=? AND "
+                    f"kind='exp_admin' AND measure='capital' AND length(code)=12 AND substr(code,5)='00000000' AND "
+                    f"substr(code,3)!='0000000000' AND budget_revised >= 1e9 ORDER BY v {order} LIMIT 5", (rep,)).fetchall()
+                r = Retrieval("ranking", f"Ma'aikatun da suka fi aiwatar da manyan ayyuka — {PERIOD_HA[rep]} ({top_ha})",
+                              f"Ministries by capital implementation — {PERIOD_EN[rep]} ({top_en})")
+                for i, x in enumerate(rows, 1):
+                    r.add(Fact(f"rank{i}", round(x["v"], 1), f"{i}. {x['name']}", f"{i}. {x['name']}", x["source_page"],
+                               is_pct=True, source=rep))
+                return r
             rows = self.con.execute(f"SELECT name, 100.0*perf_2025_jan_sep/revised_2025 v, revised_2025, source_page {base} "
-                                    f"AND revised_2025 >= 1e9 ORDER BY v {order} LIMIT 5", (meas,)).fetchall()
+                                    f"AND revised_2025 >= 1e9 ORDER BY v {order} LIMIT 5", ("capital",)).fetchall()
             r = Retrieval("ranking", f"Ma'aikatun da suka fi aiwatar da manyan ayyuka a 2025 ({top_ha})",
                           f"Ministries by 2025 capital implementation, Jan-Sep ({top_en})")
             for i, x in enumerate(rows, 1):
@@ -352,10 +414,17 @@ class BudgetStore:
                                    (code,)).fetchone()
             if row:
                 r.add(Fact(f"rev_{code}_2026", row["approved_2026"], f"{ha} — 2026", f"{en} — 2026", row["source_page"]))
-                if row["revised_2025"]:
-                    r.add(Fact(f"rev_{code}_2025", row["revised_2025"], f"{ha} — kasafin 2025", f"{en} — 2025 budget", row["source_page"]))
+                q25 = self.perf("rev_economic", "total", code, self.full_2025)
+                q26 = self.perf("rev_economic", "total", code, self.latest_2026)
+                if q25:
+                    r.add(Fact(f"rev_{code}_got2025", q25["ytd_actual"], f"{ha} — abin da aka samu a {PERIOD_HA[self.full_2025]}",
+                               f"{en} — received in {PERIOD_EN[self.full_2025]}", q25["source_page"], source=self.full_2025))
+                elif row["revised_2025"]:
                     r.add(Fact(f"rev_{code}_got2025", row["perf_2025_jan_sep"], f"{ha} — abin da aka samu Jan-Sat 2025",
                                f"{en} — received Jan-Sep 2025", row["source_page"]))
+                if q26:
+                    r.add(Fact(f"rev_{code}_got2026", q26["ytd_actual"], f"{ha} — abin da aka samu a {PERIOD_HA[self.latest_2026]}",
+                               f"{en} — received in {PERIOD_EN[self.latest_2026]}", q26["source_page"], source=self.latest_2026))
         return r
 
     def project_search(self, p):

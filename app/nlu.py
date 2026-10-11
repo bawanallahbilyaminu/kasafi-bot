@@ -235,7 +235,9 @@ class Understanding:
         filler = {"menene", "mene", "me", "nawa", "ne", "ce", "shin", "yaya", "kasafi", "kasafin", "kudi", "kudin",
                   "jiha", "jihar", "sokoto", "sakkwato", "na", "ta", "a", "da", "gwamnati", "gwamnatin", "budget",
                   "what", "is", "the", "of", "how", "much", "state", "for", "in", "this", "year", "bana", "shekara",
-                  "shekarar", "ina", "son", "sanin", "fada", "min", "mini", "game", "akan"}
+                  "shekarar", "ina", "son", "sanin", "fada", "min", "mini", "game", "akan", "aka", "an", "kashe",
+                  "ware", "daga", "zuwa", "yanzu", "spent", "so", "far", "has", "been", "much", "many", "har", "tun",
+                  "jimillar", "duka", "dukka", "gaba", "daya", "allocated", "used", "amfani", "yi"}
         return words <= filler
 
     def match_functions(self, t):

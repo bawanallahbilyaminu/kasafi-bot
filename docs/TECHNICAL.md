@@ -80,6 +80,28 @@ PDF problems found and fixed during extraction:
 - letter-spaced names
 - overlapping cells in the project table
 
+### 5b. Quarterly Budget Implementation Reports (2025 Q2–Q4, 2026 Q2)
+`pipeline/parse_reports.py` loads the quarterly implementation reports into `perf_items` (7,548 rows): for every
+administrative, economic, functional and programme line it records the original budget, revised/final budget, the
+quarter's spending, year-to-date spending, % performance and balance. Q1 reports are kept as source documents;
+their year-to-date figures are contained in Q2.
+
+`pipeline/validate_reports.py`: **4,567 checks, all passing**
+- MDAs → ministries → sectors → total, for total, personnel, overhead, other and capital, in every report
+- personnel + overhead + other + capital = total for every MDA
+- functional, programme and economic totals equal the administrative total
+- **cross-document:** the 2025 Q3 report's year-to-date spending equals the "2025 January–September" column of
+  the 2026 budget (₦227,654,787,906.93), for total, personnel, capital and overhead + other recurrent
+- 11 MDA totals differ between the two documents because the 2026 budget re-filed some 2025 figures under other
+  MDAs. These are counted and reported, not hidden.
+
+How the bot uses them:
+- 2025 questions are answered with **full-year 2025** figures (Q4 report).
+- Every allocation answer also shows **2026 spending so far** (latest 2026 report, currently January–June).
+- Revenue answers show amounts actually received.
+- Project-level 2025 figures still come from the 2026 budget (January–September), because the reports list
+  projects only for primary health care and basic education.
+
 ## 6. Answer safety (grounding)
 - The model never sees the database. It sees only a short list of facts, each already formatted
   (for example `₦124.41 biliyan`).
