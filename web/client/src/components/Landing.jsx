@@ -20,11 +20,11 @@ export default function Landing() {
       <main className="mx-auto grid max-w-6xl gap-12 px-5 pb-16 pt-6 md:grid-cols-[1.05fr_1fr] md:items-center md:pt-16">
         <section>
           <h1 className="text-[2.6rem] font-bold leading-[1.08] tracking-tight md:text-[3.4rem]">
-            Tambayi kasafin kudin Jihar Sokoto.
+            Ku yi tambaya game da Kasafin Kudi na Jihar Sokoto.
           </h1>
           <p className="mt-5 max-w-[34rem] text-lg text-ink-soft">
-            Rubuta ko yi magana da Hausa. Kasafi yana amsa daga takardun gwamnati kai tsaye, da adadin kudi da
-            shafin da ya fito.
+            Ku rubuta ko ku yi magana da Hausa. Kasafi AI yana amsa tambayoyinku daga takardun gwamnati kai tsaye,
+            da adadin kudi da shafin da ya fito.
           </p>
           <p className="mt-2 max-w-[34rem] text-ink-soft">
             Ask about the 2025 and 2026 budgets and how they were spent, in Hausa or English, by text or voice.
