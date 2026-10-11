@@ -48,6 +48,124 @@ async def send_answer(update: Update, text: str, iid: int, transcript: str = Non
         except Exception:  # markdown parse errors on odd characters -> send plain
             await msg.reply_text(chunk, reply_markup=feedback_kb(iid) if last else None)
 
+# ------------------------------------------------------------------ live progress
+STEPS = {  # stage -> (Hausa in progress, Hausa done, English in progress, English done)
+    "listen": ("Ina sauraron sakon muryarka", "Na saurari sakon", "Listening to your voice note", "Listened"),
+    "understand": ("Ina fahimtar tambayar (N-ATLaS)", "Na fahimci tambayar", "Understanding the question (N-ATLaS)",
+                   "Understood the question"),
+    "search": ("Ina duba kasafin kudi", "Na duba kasafin kudi", "Searching the budget documents", "Searched the budget"),
+    "write": ("Ina rubuta amsa (N-ATLaS)", "Na rubuta amsa", "Writing the answer (N-ATLaS)", "Answer written"),
+}
+
+
+class Status:
+    """One message that updates as the engine works, plus Telegram's 'typing…' / 'recording voice…' indicator
+    kept alive the whole time (Telegram clears a chat action after ~5 s, so it is re-sent every 4 s).
+
+        ⏳ Ina sauraron sakon muryarka…          (voice received)
+        🎙️ Na ji: “nawa aka kashe …”
+        ✅ Na fahimci tambayar
+        ⏳ Ina duba kasafin kudi…
+    """
+
+    def __init__(self, update: Update, lang="ha"):
+        self.update, self.lang = update, lang
+        self.loop = asyncio.get_running_loop()
+        self.msg = None
+        self.heard = None
+        self.done_steps, self.current = [], None
+        self.action = ChatAction.TYPING
+        self._last = None
+        self._ticker = None
+        self._lock = asyncio.Lock()       # one edit at a time, in order
+        self._pending = []                # updates sent from the worker thread
+        self._closed = False
+
+    async def start(self, stage):
+        self._ticker = asyncio.create_task(self._keep_action())
+        await self.set(stage)
+
+    async def _keep_action(self):
+        try:
+            while True:
+                try:
+                    await self.update.effective_chat.send_action(self.action)
+                except Exception:  # noqa: BLE001
+                    pass
+                await asyncio.sleep(4)
+        except asyncio.CancelledError:
+            pass
+
+    def _render(self):
+        i = 0 if self.lang == "ha" else 2
+        lines = []
+        if self.heard:
+            lines.append(f"🎙️ {'Na ji' if self.lang == 'ha' else 'I heard'}: “{self.heard}”")
+        lines += [f"✅ {STEPS[s][i + 1]}" for s in self.done_steps if s != "listen"]
+        if self.current:
+            lines.append(f"⏳ {STEPS[self.current][i]}…")
+        return "\n".join(lines)
+
+    async def set(self, stage, text=None):
+        async with self._lock:
+            if not self._closed:
+                await self._set(stage, text)
+
+    async def _set(self, stage, text=None):
+        if stage == "heard":
+            self.heard = text
+            if self.current == "listen":
+                self.done_steps.append("listen")
+            self.current = None
+        elif stage in STEPS:
+            if self.current and self.current != stage:
+                self.done_steps.append(self.current)
+            self.current = stage
+        body = self._render()
+        if not body or body == self._last:
+            return
+        self._last = body
+        try:
+            if self.msg is None:
+                self.msg = await self.update.effective_message.reply_text(body)
+            else:
+                await self.msg.edit_text(body)
+        except Exception:  # noqa: BLE001  (rate limit / "not modified": the answer matters, not the status)
+            log.debug("status update failed", exc_info=True)
+
+    def from_thread(self, stage, **info):
+        """Progress callback for the engine, which runs in a worker thread."""
+        self._pending.append(asyncio.run_coroutine_threadsafe(self.set(stage, info.get("text")), self.loop))
+
+    async def finish(self):
+        """Stop the indicator. Voice: the status shrinks to what was heard (so the user can check it).
+        Text: the status is deleted."""
+        if self._ticker:
+            self._ticker.cancel()
+        if self._pending:                 # let updates already sent from the worker thread land first
+            await asyncio.gather(*(asyncio.wrap_future(f) for f in self._pending), return_exceptions=True)
+        async with self._lock:
+            self._closed = True
+        try:
+            if self.msg and self.heard:
+                await self.msg.edit_text(f"🎙️ {'Na ji' if self.lang == 'ha' else 'I heard'}: “{self.heard}”")
+            elif self.msg:
+                await self.msg.delete()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+async def keep_action(chat, action, stop: asyncio.Event):
+    while not stop.is_set():
+        try:
+            await chat.send_action(action)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            await asyncio.wait_for(stop.wait(), 4)
+        except asyncio.TimeoutError:
+            pass
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(HELP_HA + "\n\n_" + config.ATTRIBUTION + "_", parse_mode=ParseMode.MARKDOWN,
@@ -64,13 +182,32 @@ async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, reply):
-    """Hausa voice note of the answer (when the user spoke, or chose /murya)."""
+    """Hausa voice note of the answer (when the user spoke, or chose /murya), with 'recording voice…' shown."""
     if not ENGINE.wants_voice(reply, context.user_data.get("voice")):
         return
-    await update.effective_chat.send_action(ChatAction.RECORD_VOICE)
-    audio = await asyncio.to_thread(ENGINE.speak, reply)
-    if audio:
-        await update.effective_message.reply_voice(voice=audio, caption="🔊 Amsa da murya")
+    chat = update.effective_chat
+    note = None
+    try:
+        note = await update.effective_message.reply_text("🔊 Ina nadar amsa da murya…")
+    except Exception:  # noqa: BLE001
+        pass
+    stop = asyncio.Event()
+    ticker = asyncio.create_task(keep_action(chat, ChatAction.RECORD_VOICE, stop))
+    try:
+        audio = await asyncio.to_thread(ENGINE.speak, reply)
+    finally:
+        stop.set()
+        await ticker
+    try:
+        if audio:
+            await chat.send_action(ChatAction.UPLOAD_VOICE)
+            await update.effective_message.reply_voice(voice=audio, caption="🔊 Amsa da murya")
+    finally:
+        if note:
+            try:
+                await note.delete()
+            except Exception:  # noqa: BLE001
+                pass
 
 
 async def murya(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -85,8 +222,12 @@ async def murya(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str = None):
     text = text or update.effective_message.text
     uid = update.effective_user.id
-    await update.effective_chat.send_action(ChatAction.TYPING)
-    reply = await asyncio.to_thread(ENGINE.handle_text, "telegram", uid, text)
+    st = Status(update, ENGINE.nlu.detect_lang(text.lower()))
+    await st.start("understand")
+    try:
+        reply = await asyncio.to_thread(ENGINE.handle_text, "telegram", uid, text, progress=st.from_thread)
+    finally:
+        await st.finish()
     await send_answer(update, reply.text, reply.interaction_id)
     await send_voice_reply(update, context, reply)
 
@@ -97,12 +238,18 @@ async def on_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if media.duration and media.duration > 120:
         await msg.reply_text("Yi hakuri, a takaita sakon murya zuwa minti 2.")
         return
-    await update.effective_chat.send_action(ChatAction.TYPING)
-    f = await media.get_file()
-    data = bytes(await f.download_as_bytearray())
-    suffix = ".ogg" if msg.voice else "." + (media.mime_type or "audio/mpeg").split("/")[-1]
-    reply = await asyncio.to_thread(ENGINE.handle_voice, "telegram", update.effective_user.id, data, suffix)
-    await send_answer(update, reply.text, reply.interaction_id, transcript=reply.transcript)
+    st = Status(update, "ha")
+    await st.start("listen")
+    try:
+        f = await media.get_file()
+        data = bytes(await f.download_as_bytearray())
+        suffix = ".ogg" if msg.voice else "." + (media.mime_type or "audio/mpeg").split("/")[-1]
+        reply = await asyncio.to_thread(ENGINE.handle_voice, "telegram", update.effective_user.id, data, suffix,
+                                        progress=st.from_thread)
+    finally:
+        await st.finish()
+    # the transcript stays visible in the status message, so it isn't repeated here
+    await send_answer(update, reply.text, reply.interaction_id)
     await send_voice_reply(update, context, reply)
 
 

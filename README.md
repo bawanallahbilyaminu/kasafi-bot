@@ -66,6 +66,12 @@ python -m app.run_all                   :: Telegram + WhatsApp webhook on port 8
 
 Keep the laptop on mains power with sleep disabled (Settings → System → Power → Sleep: Never).
 
+### What users see while the bot works (Telegram)
+One status message updates live: "⏳ Ina sauraron sakon muryarka…" → "🎙️ Na ji: “…”" → "✅ Na fahimci tambayar" →
+"⏳ Ina duba kasafin kudi…" → "⏳ Ina rubuta amsa (N-ATLaS)…". Telegram's "typing…" / "recording voice…" indicator
+stays on throughout, and "🔊 Ina nadar amsa da murya…" shows while the voice reply is made. For voice notes the
+status shrinks to the transcript at the end, so the user can check what was heard.
+
 ### Hausa voice replies
 On by default (`TTS_ENABLED=1`). When someone sends a voice note, the bot answers with text **and** a Hausa voice
 note, so people who cannot read can still hear the answer. On Telegram, `/murya` turns voice replies on for every

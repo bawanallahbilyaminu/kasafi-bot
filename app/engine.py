@@ -45,7 +45,16 @@ class Engine:
                 self.asr = HausaASR()
 
     # ------------------------------------------------------------------ public
-    def handle_voice(self, channel, uid, audio: bytes, suffix=".ogg"):
+    @staticmethod
+    def _progress(cb, stage, **info):
+        """Tell the channel what stage we're in (Telegram shows it live). Never lets a UI error break an answer."""
+        if cb:
+            try:
+                cb(stage, **info)
+            except Exception:  # noqa: BLE001
+                log.debug("progress callback failed", exc_info=True)
+
+    def handle_voice(self, channel, uid, audio: bytes, suffix=".ogg", progress=None):
         t0 = time.time()
         if not self.asr:
             return self._finish(channel, uid, "voice", None, "Yi hakuri, ba a kunna sauraron murya ba.", t0, {})
@@ -59,12 +68,14 @@ class Engine:
         if not text:
             return self._finish(channel, uid, "voice", "", "Yi hakuri, ban ji komai a sakon muryar ba.", t0,
                                 {"audio_seconds": secs, "ms_asr": ms_asr})
+        self._progress(progress, "heard", text=text)
         return self.handle_text(channel, uid, text, input_type="voice", extra={"audio_seconds": secs, "ms_asr": ms_asr},
-                                t0=t0)
+                                t0=t0, progress=progress)
 
-    def handle_text(self, channel, uid, text, input_type="text", extra=None, t0=None):
+    def handle_text(self, channel, uid, text, input_type="text", extra=None, t0=None, progress=None):
         t0 = t0 or time.time()
         rec = dict(extra or {})
+        self._progress(progress, "understand")
         # 1. understand: N-ATLaS translation/hints + rule-based linking against the budget's own names
         t1 = time.time()
         und = {}
@@ -105,6 +116,7 @@ class Engine:
                                 {**rec, "natlas_understanding": und, "english": english, "lang": lang, "intent": p.intent})
 
         # 2. retrieve facts
+        self._progress(progress, "search")
         t2 = time.time()
         ret = self.store.retrieve(p)
         rec["ms_retrieve"] = int((time.time() - t2) * 1000)
@@ -115,6 +127,7 @@ class Engine:
         t3 = time.time()
         answer, source, fail = None, "template", None
         if (ret.facts or ret.items) and self.llm and self.llm.enabled:
+            self._progress(progress, "write")
             try:
                 draft = self.llm.write(text, facts, lang)
                 ok, bad = grounded(draft, llm_ret, lang)
