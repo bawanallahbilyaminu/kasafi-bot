@@ -1,6 +1,6 @@
 # Kasafi benchmark: rules, holdout2 (rules + retrieval, N-ATLaS off)
 
-**32/32 passed (100%)** in 0 s
+**32/32 passed (100%)** in 1 s
 
 ## By category
 

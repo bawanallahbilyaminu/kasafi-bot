@@ -275,6 +275,14 @@ add("complex", 3, "en", "How much did the Ministry of Agriculture spend on capit
 add("complex", 3, "ha", "Nawa aka kashe a fannin lafiya zuwa karshen kwata na biyu na 2025?", ["mda"], mda="052100000000",
     figures=fig(perf("052100000000", "2025Q2")["ytd_actual"]))
 
+# short ministry names people use (live, 12 Oct: "Science and Technical" was not recognised)
+for q, code in [("How much is allocated to Science and Technical in 2026", "022800000000"),
+                ("How much is allocated to SSG in 2026", "016100000000"),
+                ("How much is allocated to Home Affairs in 2026", "012400000000"),
+                ("How much is allocated to Finance in 2026", "022000000000"),
+                ("Nawa aka ware wa kimiyya da fasaha a 2026?", "022800000000")]:
+    add("agency", 2, "ha" if "Nawa" in q else "en", q, ["mda"], mda=code, figures=fig(admin(code)))
+
 # ------------------------------------------------------------------ multi-entity (known limitation: one subject per question)
 for q, lang in [("Compare health and education budgets in 2026", "en"), ("Nawa aka ware wa lafiya da ilimi a 2026?", "ha"),
                 ("How much for services, agriculture and industry?", "en"), ("Health vs agriculture 2025 spending", "en")]:
