@@ -62,7 +62,11 @@ def citation(ret, lang):
 def facts_block(ret, lang):
     """Facts for N-ATLaS. Every item line carries its year, so a 2026 allocation is never read as 2025 spending."""
     b26 = "kasafin 2026" if lang == "ha" else "2026 budget"
-    lines = [f"- {f.text(lang)}" for f in ret.facts]
+    subject = ret.subject_ha if lang == "ha" else ret.subject_en
+    lines = []
+    if subject:   # without this, N-ATLaS sees "Total budget: ..." and may say the agency is not in the facts
+        lines.append(f"DUKKAN ADADIN DA KE KASA NA: {subject}" if lang == "ha" else f"ALL FIGURES BELOW ARE FOR: {subject}")
+    lines += [f"- {f.text(lang)}" for f in ret.facts]
     for i in ret.items:
         if i["type"] == "project":
             extra = f" ({i['lga'].title()})" if i.get("lga") and i["lga"] != "State Wide" else ""
@@ -242,20 +246,36 @@ def _capital_sets(ret):
     return cap, other
 
 
+TOTAL_CTX = re.compile(r"\b(total|jimilla|jimillar|overall|altogether|gaba daya|baki daya)\b", re.I)
+NO_INFO = re.compile(r"not mentioned|no information|not provided|not available|no data|does not (contain|include|mention)|"
+                     r"ba a ambaci|babu bayani|ba a bayar|ba ni da bayani|ba a samu bayani", re.I)
+
+
 def capital_ok(draft, ret):
     """A figure described as capital / projects ("₦4.8 million on capital projects") must be a capital figure,
     not the department's total."""
     cap, other = _capital_sets(ret)
+    cap_facts = set()
+    for f in ret.facts:
+        if not (f.is_pct or f.is_count) and (f.key.startswith("capital") or "capital" in f"{f.label_en}".lower()):
+            for l in ("ha", "en"):
+                cap_facts |= {_n(n) for n in MONEY.findall(f.text(l))}
     if not cap:
         return True, None
     for clause in re.split(r"\.(?=\s|$)|[;\n]|:(?=\s)", draft):
+        prev_end = 0
         for m in MONEY.finditer(clause):
             n = _n(m.group(1))
+            since_prev = clause[prev_end:m.start()]       # words between the previous figure (or clause start) and this one
+            prev_end = m.end()
             near = clause[max(0, m.start() - 30):m.start()] + " " + clause[m.end():m.end() + 40]
             near = re.sub(r"₦\s?\d[\d,]*(?:\.\d+)?.*", "", clause[m.end():m.end() + 40])  # stop at the next figure
             near = clause[max(0, m.start() - 30):m.start()] + " " + near
             if CAPITAL_CTX.search(near) and n in other and n not in cap:
                 return False, f"₦{n} presented as capital but it is a total/recurrent figure"
+            if TOTAL_CTX.search(since_prev) and not CAPITAL_CTX.search(near) and not CAPITAL_CTX.search(since_prev) \
+                    and n in cap_facts and n not in other:
+                return False, f"₦{n} presented as the total but it is the capital part"
     return True, None
 
 
@@ -290,6 +310,8 @@ def claims_ok(draft, ret):
 
 
 def grounded(draft, ret, lang):
+    if (ret.facts or ret.items) and NO_INFO.search(draft or ""):
+        return False, "N-ATLaS said there was no information, but figures were found"
     allowed = allowed_numbers(ret, lang) | {str(i) for i in range(0, 11)} | {"100"}
     for n in NUM_IN_TEXT.findall(draft):
         k = _n(n)

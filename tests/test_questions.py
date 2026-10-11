@@ -122,6 +122,14 @@ def claim_checks():
     ok, _ = grounded("In 2025 the government spent ₦4.8 million on capital projects for IDPs.", mr, "en")
     if ok:   # live failure: the department's TOTAL spending presented as capital spending (capital was ₦0)
         print("FAIL claim: total figure presented as capital was accepted"); fails += 1
+    wr = R("How much was allocated for Infrastructure in 2026")
+    if grounded("The total budget allocated for Infrastructure in 2026 is ₦58.13 billion.", wr, "en")[0]:
+        print("FAIL claim: capital part presented as the total was accepted"); fails += 1   # live: total is ₦59.17bn
+    if not grounded("The Ministry of Works has ₦59.17 billion in 2026, of which ₦58.13 billion is for capital projects.", wr, "en")[0]:
+        print("FAIL claim: correct total + capital sentence rejected"); fails += 1
+    mc = R("how much was spent for Sultan Maccido Institute")
+    if grounded("The Sultan Maccido Institute was not mentioned in the provided facts.", mc, "en")[0]:
+        print("FAIL claim: 'not mentioned' answer accepted although figures exist"); fails += 1
     if e.nlu.parse("how many projects have been done for IDPs in Sokoto in 2025").intent != "project_status":
         print("FAIL claim: 'how many projects ... for IDPs' not routed to project status"); fails += 1
     if e.nlu.parse("o ana samun shi gaba ga ayyuka na social protection a jihar sokoto.").intent != "project_status":
@@ -133,7 +141,7 @@ def claim_checks():
         got = e.nlu.parse(q).intent
         if got != want:
             print(f"FAIL claim: '{q}' routed to {got}, expected {want}"); fails += 1
-    print(f"claims: {len(cases) + 3 + len(routing) - fails}/{len(cases) + 3 + len(routing)} passed")
+    print(f"claims: {len(cases) + 6 + len(routing) - fails}/{len(cases) + 6 + len(routing)} passed")
     return fails
 
 
