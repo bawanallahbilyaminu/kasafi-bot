@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { api } from '../lib/api'
 
 export const fetchProfile = createAsyncThunk('profile/fetch', () => api('/api/me'))
+export const fetchAdmin = createAsyncThunk('profile/admin', () => api('/api/admin/me').catch(() => ({ admin: false })))
 export const saveProfile = createAsyncThunk('profile/save', async (body, { rejectWithValue }) => {
   try { return await api('/api/me', { method: 'PUT', body }) } catch (e) { return rejectWithValue(e.message) }
 })
@@ -9,7 +10,7 @@ export const saveProfile = createAsyncThunk('profile/save', async (body, { rejec
 const slice = createSlice({
   name: 'profile',
   // status: idle | loading | ready | missing | error
-  initialState: { status: 'idle', profile: null, suggested: {}, editing: false, saving: false, error: null },
+  initialState: { status: 'idle', profile: null, suggested: {}, editing: false, saving: false, error: null, isAdmin: false },
   reducers: {
     startEditing: (s) => { s.editing = true; s.error = null },
     stopEditing: (s) => { s.editing = false },
@@ -22,6 +23,7 @@ const slice = createSlice({
         s.status = a.payload.profile ? 'ready' : 'missing'
       })
       .addCase(fetchProfile.rejected, (s, a) => { s.status = 'error'; s.error = a.error.message })
+      .addCase(fetchAdmin.fulfilled, (s, a) => { s.isAdmin = !!a.payload?.admin })
       .addCase(saveProfile.pending, (s) => { s.saving = true; s.error = null })
       .addCase(saveProfile.fulfilled, (s, a) => { s.saving = false; s.profile = a.payload.profile; s.status = 'ready'; s.editing = false })
       .addCase(saveProfile.rejected, (s, a) => { s.saving = false; s.error = a.payload || 'Could not save. Try again.' })

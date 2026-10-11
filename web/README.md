@@ -65,6 +65,13 @@ HTTPS (the microphone only works on https): `sudo certbot --nginx -d kasafi.hala
 
 Update later: `cd /opt/kasafi && git pull && cd web/client && npm run build && pm2 restart kasafi-web`
 
+## Admin page (/admin)
+Put your sign-in email in `web/server/.env`: `ADMIN_EMAILS=you@example.com` (comma-separate several). After signing
+in, an **Admin** link appears in the sidebar. It shows every interaction from Telegram, WhatsApp and the web (from the
+engine's log): headline numbers, filters (problems, unreviewed, 👎, voice, channel, search), and for each one what was
+heard, how N-ATLaS understood it, the facts it was given, the answer, why a check stepped in, and timings. Mark each
+**OK / Issue / Fixed** with a note; marks are stored in the engine's log.
+
 ## What it stores
 - `profiles`: Clerk user id, name, organisation, email
 - `sessions` and `messages`: each user's chats (the sidebar), answers, feedback

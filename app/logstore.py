@@ -41,7 +41,8 @@ class LogStore:
         self.con.execute(SCHEMA)
         self.con.execute(USERS)
         cols = {r[1] for r in self.con.execute("PRAGMA table_info(interactions)")}
-        for c, t in (("voice_reply", "INTEGER"), ("ms_tts", "INTEGER")):
+        for c, t in (("voice_reply", "INTEGER"), ("ms_tts", "INTEGER"), ("review_status", "TEXT"),
+                     ("review_note", "TEXT"), ("reviewed_utc", "TEXT")):
             if c not in cols:
                 self.con.execute(f"ALTER TABLE interactions ADD COLUMN {c} {t}")
         self.con.commit()
@@ -122,6 +123,74 @@ class LogStore:
             f"i.transcript, i.intent, i.answer_source, i.grounding_fail, i.feedback, i.answer, i.error "
             f"FROM interactions i LEFT JOIN users u ON u.user_hash=i.user_hash WHERE {where} "
             f"ORDER BY i.id DESC LIMIT ?", (n,)).fetchall()
+
+    # ---------------------------------------------------------------- admin review (web admin page)
+    ADMIN_COLS = ("i.id, i.ts_utc, i.channel, i.input_type, i.audio_seconds, i.transcript, i.english, i.lang, i.intent, "
+                  "i.answer_source, i.grounding_fail, i.ms_total, i.feedback, i.voice_reply, i.error, i.review_status, "
+                  "i.review_note, coalesce(u.name, '') AS name, coalesce(u.organization, '') AS organization")
+    PROBLEM = "(i.answer_source = 'template' OR i.grounding_fail IS NOT NULL OR i.error IS NOT NULL OR i.feedback = -1)"
+
+    def _rows(self, sql, args):
+        with self._lock:
+            cur = self.con.cursor()
+            cur.row_factory = sqlite3.Row
+            return [dict(r) for r in cur.execute(sql, args).fetchall()]
+
+    def admin_list(self, channel=None, view="all", q=None, limit=50, offset=0):
+        where, args = ["i.channel IN ('telegram','whatsapp','web')"], []
+        if channel:
+            where.append("i.channel = ?"); args.append(channel)
+        if view == "problems":
+            where.append(self.PROBLEM)
+        elif view == "down":
+            where.append("i.feedback = -1")
+        elif view == "unreviewed":
+            where.append(f"{self.PROBLEM} AND i.review_status IS NULL")
+        elif view == "issues":
+            where.append("i.review_status = 'issue'")
+        elif view == "voice":
+            where.append("i.input_type = 'voice'")
+        if q:
+            where.append("(i.transcript LIKE ? OR i.answer LIKE ? OR i.english LIKE ? OR u.name LIKE ? OR u.organization LIKE ?)")
+            args += [f"%{q}%"] * 5
+        w = " AND ".join(where)
+        base = f"FROM interactions i LEFT JOIN users u ON u.user_hash = i.user_hash WHERE {w}"
+        total = self._rows(f"SELECT count(*) AS n {base}", args)[0]["n"]
+        rows = self._rows(f"SELECT {self.ADMIN_COLS}, substr(i.answer, 1, 240) AS answer_preview {base} "
+                          f"ORDER BY i.id DESC LIMIT ? OFFSET ?", args + [int(limit), int(offset)])
+        return {"total": total, "rows": rows}
+
+    def admin_get(self, iid):
+        rows = self._rows(f"SELECT {self.ADMIN_COLS}, i.answer, i.facts, i.entities, i.natlas_understanding, i.ms_asr, "
+                          "i.ms_understand, i.ms_retrieve, i.ms_write, i.ms_tts, i.asr_model, i.llm_model, i.feedback_ts, "
+                          "i.reviewed_utc FROM interactions i LEFT JOIN users u ON u.user_hash = i.user_hash WHERE i.id = ?",
+                          (int(iid),))
+        return rows[0] if rows else None
+
+    def admin_review(self, iid, status, note):
+        with self._lock:
+            n = self.con.execute("UPDATE interactions SET review_status=?, review_note=?, reviewed_utc=? WHERE id=?",
+                                 (status or None, (note or "").strip()[:2000] or None, now() if status else None,
+                                  int(iid))).rowcount
+            self.con.commit()
+        return n
+
+    def admin_stats(self):
+        s = self.stats()
+        g = lambda sql: self._rows(sql, ())
+        chans = "channel IN ('telegram','whatsapp','web')"
+        s["by_channel"] = g(f"SELECT channel AS k, count(*) AS n FROM interactions WHERE {chans} GROUP BY 1 ORDER BY 2 DESC")
+        s["by_intent"] = g(f"SELECT coalesce(intent,'—') AS k, count(*) AS n FROM interactions WHERE {chans} "
+                           "GROUP BY 1 ORDER BY 2 DESC LIMIT 10")
+        s["problems"] = g(f"SELECT count(*) AS n FROM interactions i WHERE i.{chans} AND {self.PROBLEM}")[0]["n"]
+        s["unreviewed"] = g(f"SELECT count(*) AS n FROM interactions i WHERE i.{chans} AND {self.PROBLEM} "
+                            "AND i.review_status IS NULL")[0]["n"]
+        s["open_issues"] = g(f"SELECT count(*) AS n FROM interactions WHERE {chans} AND review_status='issue'")[0]["n"]
+        s["median_ms"] = (g(f"SELECT ms_total AS v FROM interactions WHERE {chans} AND ms_total IS NOT NULL "
+                            "ORDER BY ms_total LIMIT 1 OFFSET (SELECT count(*)/2 FROM interactions "
+                            f"WHERE {chans} AND ms_total IS NOT NULL)") or [{"v": None}])[0]["v"]
+        s["orgs"] = [{"k": o, "n": c} for o, c in s["orgs"]]
+        return s
 
     def last_for_user(self, uhash):
         with self._lock:

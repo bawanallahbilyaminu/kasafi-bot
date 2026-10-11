@@ -3,10 +3,11 @@ import { useAuth } from '@clerk/react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Route, Routes } from 'react-router-dom'
 import { setTokenGetter } from './lib/api'
-import { fetchProfile } from './store/profileSlice'
+import { fetchAdmin, fetchProfile } from './store/profileSlice'
 import Landing from './components/Landing'
 import Onboarding from './components/Onboarding'
 import Layout from './components/Layout'
+import AdminPage from './components/AdminPage'
 
 function Splash({ text = 'Ana budewa…' }) {
   return (
@@ -27,6 +28,7 @@ function SignedInApp() {
   useEffect(() => {
     setTokenGetter(() => getToken())
     dispatch(fetchProfile())
+    dispatch(fetchAdmin())
   }, [dispatch, getToken])
 
   if (status === 'idle' || status === 'loading') return <Splash />
@@ -34,6 +36,7 @@ function SignedInApp() {
   return (
     <>
       <Routes>
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/c/:id" element={<Layout />} />
         <Route path="*" element={<Layout />} />
       </Routes>

@@ -188,6 +188,9 @@ OGG/Opus.
   (👎, template fallbacks and errors).
 - The public evidence file (`interactions.csv`) contains the organisation but never names; names stay in
   `private/users_private.csv`, a separate folder from `evidence/`, so it is never uploaded by accident.
+- **Admin review page** (web app, `/admin`, admins by email): every interaction across channels with the
+  N-ATLaS understanding, the facts it was given, the answer and any check that stepped in; each can be marked
+  OK / Issue / Fixed with a note (`review_status`, `review_note` in the log).
 - User ids (Telegram id or WhatsApp number) are stored only as a salted SHA-256 hash.
 - Users' audio is transcribed in memory and not stored.
 - The bot's own WhatsApp voice replies are saved in `data/media/`, so Twilio can fetch them. They contain only the

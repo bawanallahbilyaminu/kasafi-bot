@@ -55,6 +55,7 @@ export default function Sidebar({ open, onClose }) {
   const navigate = useNavigate()
   const { sessions, currentId, pending } = useSelector((s) => s.chat)
   const profile = useSelector((s) => s.profile.profile)
+  const isAdmin = useSelector((s) => s.profile.isAdmin)
 
   const groups = []
   for (const s of sessions) {
@@ -92,6 +93,14 @@ export default function Sidebar({ open, onClose }) {
             </div>
           ))}
         </nav>
+        {isAdmin && (
+          <div className="px-3 pb-2">
+            <button onClick={() => go('/admin')} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[15px] hover:bg-paper">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" /></svg>
+              Admin: tambayoyi da amsoshi
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-3 border-t border-line px-4 py-3">
           <UserButton />
           <button onClick={() => dispatch(startEditing())} className="min-w-0 flex-1 text-left" title="Canza bayananku">

@@ -142,6 +142,49 @@ def feedback(body: FeedbackIn, x_api_key: str = Header(None)):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- admin (the web server checks the admin's identity)
+class ReviewIn(BaseModel):
+    status: str = ""      # "" | ok | issue | fixed
+    note: str = ""
+
+
+@router.get("/admin/stats")
+def admin_stats(x_api_key: str = Header(None)):
+    _auth(x_api_key)
+    return ENGINE.logs.admin_stats()
+
+
+@router.get("/admin/interactions")
+def admin_interactions(channel: str = "", view: str = "all", q: str = "", limit: int = 50, offset: int = 0,
+                       x_api_key: str = Header(None)):
+    _auth(x_api_key)
+    return ENGINE.logs.admin_list(channel or None, view, q.strip() or None, min(max(limit, 1), 200), max(offset, 0))
+
+
+@router.get("/admin/interactions/{iid}")
+def admin_interaction(iid: int, x_api_key: str = Header(None)):
+    _auth(x_api_key)
+    row = ENGINE.logs.admin_get(iid)
+    if not row:
+        raise HTTPException(404, "interaction not found")
+    for k in ("facts", "entities", "natlas_understanding"):
+        try:
+            row[k] = json.loads(row[k]) if row.get(k) and k != "facts" else row.get(k)
+        except (TypeError, ValueError):
+            pass
+    return row
+
+
+@router.post("/admin/interactions/{iid}/review")
+def admin_review(iid: int, body: ReviewIn, x_api_key: str = Header(None)):
+    _auth(x_api_key)
+    if body.status not in ("", "ok", "issue", "fixed"):
+        raise HTTPException(400, "status must be ok, issue or fixed")
+    if not ENGINE.logs.admin_review(iid, body.status, body.note):
+        raise HTTPException(404, "interaction not found")
+    return ENGINE.logs.admin_get(iid)
+
+
 @router.get("/health")
 def health():
     return {"ok": ENGINE is not None, "asr": bool(ENGINE and ENGINE.asr), "llm": bool(ENGINE and ENGINE.llm),

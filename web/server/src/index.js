@@ -11,7 +11,8 @@ import path from 'node:path'
 import { clerkMiddleware, clerkClient, getAuth } from '@clerk/express'
 import { profiles, sessions, messages } from './db.js'
 
-const { PORT = 3001, ENGINE_URL = '', ENGINE_API_KEY = '', CLIENT_DIST = '../client/dist' } = process.env
+const { PORT = 3001, ENGINE_URL = '', ENGINE_API_KEY = '', CLIENT_DIST = '../client/dist', ADMIN_EMAILS = '' } = process.env
+const ADMINS = new Set(ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean))
 const AUDIO_DIR = path.resolve(path.dirname(process.env.DB_PATH || './data/x'), 'audio')
 fs.mkdirSync(AUDIO_DIR, { recursive: true })
 
@@ -100,6 +101,50 @@ function sessionFor(req, firstText) {
   }
   return { ...sessions.create(req.userId, titleFrom(firstText)), userId: req.userId }
 }
+
+// ---------------------------------------------------------------- admin (emails in ADMIN_EMAILS)
+const adminCache = new Map()   // userId -> { admin, at }
+async function isAdmin(userId) {
+  const hit = adminCache.get(userId)
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.admin
+  let admin = false
+  try {
+    const u = await clerkClient.users.getUser(userId)
+    admin = (u.emailAddresses || []).some((e) => ADMINS.has(String(e.emailAddress).toLowerCase())
+      && (e.verification?.status ?? 'verified') === 'verified')
+  } catch { admin = false }
+  adminCache.set(userId, { admin, at: Date.now() })
+  return admin
+}
+const requireAdmin = async (req, res, next) => {
+  if (!(await isAdmin(req.userId))) return res.status(403).json({ error: 'Admins only.' })
+  next()
+}
+
+app.get('/api/admin/me', requireUser, async (req, res) => res.json({ admin: await isAdmin(req.userId) }))
+
+// forward admin reads/reviews to the engine's log (covers Telegram, WhatsApp and web)
+async function forward(req, res, path, init = {}) {
+  try {
+    const r = await engine(path, init)
+    const body = await r.json().catch(() => ({}))
+    res.status(r.status).json(r.ok ? body : { error: body.detail || 'The engine could not answer.' })
+  } catch {
+    res.status(503).json({ error: 'Kasafi engine is offline. Start it, then refresh.' })
+  }
+}
+app.get('/api/admin/stats', requireUser, requireAdmin, (req, res) => forward(req, res, '/api/admin/stats'))
+app.get('/api/admin/interactions', requireUser, requireAdmin, (req, res) => {
+  const q = new URLSearchParams()
+  for (const k of ['channel', 'view', 'q', 'limit', 'offset']) if (req.query[k]) q.set(k, String(req.query[k]))
+  forward(req, res, `/api/admin/interactions?${q}`)
+})
+app.get('/api/admin/interactions/:id', requireUser, requireAdmin, (req, res) =>
+  forward(req, res, `/api/admin/interactions/${Number(req.params.id)}`))
+app.post('/api/admin/interactions/:id/review', requireUser, requireAdmin, (req, res) =>
+  forward(req, res, `/api/admin/interactions/${Number(req.params.id)}/review`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: String(req.body?.status || ''), note: String(req.body?.note || '') }) }))
 
 // ---------------------------------------------------------------- profile
 app.get('/api/me', requireUser, async (req, res) => {
