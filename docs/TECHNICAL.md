@@ -32,6 +32,8 @@ figures from the official document, explains them in simple Hausa, and cites the
  │     otherwise a deterministic template answer is sent instead            │
  │  7. Citation appended by code ("Madogara: … shafi 18, 27")               │
  │  8. logstore.py: interaction log (hashed user id) + 👍/👎 feedback        │
+ │  9. Optional voice reply: the finished answer is read aloud in Hausa     │
+ │     by facebook/mms-tts-hau (no understanding or writing; TTS_ENABLED)   │
  └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,8 +48,24 @@ That fits on an 8 GB laptop GPU (RTX 4060): N-ATLaS in 4-bit NF4 plus Hausa-ASR 
 | Question understanding | `NCAIR1/N-ATLaS` (Llama-3 8B) | `app/llm.py` → `NATLaS.understand` | Few-shot prompt turns Hausa/Pidgin into an English rendering plus topic, intent and year (JSON) |
 | Answer generation | `NCAIR1/N-ATLaS` | `app/llm.py` → `NATLaS.write` | Writes the citizen-facing answer in Hausa or English from retrieved facts only |
 
-- No other foundation model is used. The `openai` backend in `llm.py` exists only to call **N-ATLaS** when it
-  is served by vLLM on Colab (backup hosting).
+**N-ATLaS does all question understanding and answer writing.** Voice input uses the official
+`NCAIR1/Hausa-ASR`.
+- **No other language model:** none is used for understanding or writing. The `openai` backend in `llm.py`
+  exists only to call **N-ATLaS** when it is served by vLLM on Colab (backup hosting).
+- **Keyword rules** (`nlu.py`) help match official ministry and LGA names.
+- **Template fallback:** if an N-ATLaS draft fails the grounding check (section 6), a fixed template with the
+  verified figures is sent instead. Neither the rules nor the template involve a model.
+
+**Text-to-speech (voice replies only).** N-ATLaS has no text-to-speech model.
+- **What it does:** `facebook/mms-tts-hau` (Meta MMS-TTS Hausa) only reads out N-ATLaS's finished answer as a Hausa
+  voice note, for users who cannot read (section 5c). It does no understanding or writing, and adds nothing to
+  the content of an answer.
+- **Switching it off:** set `TTS_ENABLED=0`. Text answers are unchanged.
+- **Future:** it will be replaced by an official N-ATLaS voice when one is released.
+
+| Component | Model | Where in code | Role |
+|---|---|---|---|
+| Voice replies (optional) | `facebook/mms-tts-hau` (VITS, ~36M) — not an N-ATLaS asset | `app/tts.py` → `HausaTTS.speak` | Reads the finished answer aloud in Hausa |
 - Each logged interaction records `asr_model` and `llm_model`, plus whether the final answer was written by
   N-ATLaS (`answer_source = natlas`) or replaced by the template after a failed grounding check.
 - `scripts/check_models.py` loads both models and runs a Hausa round trip; its output is saved as setup evidence.
@@ -126,10 +144,14 @@ headline of the answer is converted to speakable Hausa by `app/speak.py`:
 
 The text is then synthesised by **Meta MMS-TTS Hausa** (`facebook/mms-tts-hau`, VITS, CC-BY-NC 4.0) and encoded as
 OGG/Opus.
-- N-ATLaS has no TTS model, so this component only reads out the answer N-ATLaS and the database produced.
-- WhatsApp voice notes are served from `/media/` on the bot's public tunnel URL.
-- Voice replies are logged (`voice_reply`, `ms_tts`).
-- Roadmap: replace MMS with a Hausa voice fine-tuned on local speakers (commercially licensable).
+- **Why it exists:** N-ATLaS has no text-to-speech model. This component only reads out the finished answer, which
+  N-ATLaS wrote from the database facts. The purpose is accessibility for citizens who cannot read.
+- **What it doesn't do:** no understanding, answer writing or figures come from it. The text it reads has already
+  passed the grounding check.
+- **Switching it off:** set `TTS_ENABLED=0`. The bot then answers in text only, with no other change.
+- **Future:** it will be replaced by an official N-ATLaS voice when one is released.
+- **WhatsApp:** voice notes are served from `/media/` on the bot's public tunnel URL.
+- **Logging:** voice replies are logged (`voice_reply`, `ms_tts`).
 
 ## 6. Answer safety (grounding)
 - The model never sees the database. It sees only a short list of facts, each already formatted
@@ -142,13 +164,18 @@ OGG/Opus.
 
 ## 7. Privacy
 - User ids (Telegram id or WhatsApp number) are stored only as a salted SHA-256 hash.
-- Audio is transcribed in memory and not stored.
+- Users' audio is transcribed in memory and not stored.
+- The bot's own WhatsApp voice replies are saved in `data/media/`, so Twilio can fetch them. They contain only the
+  spoken answer, never user audio.
 - The bot only answers about public budget documents.
 
 ## 8. Licensing
 - Hausa-ASR's terms allow civic-technology use for up to 1,000 monthly active users, with attribution
   (shown in the bot's /start, /about and this document).
 - Wider deployment would need the commercial licence from Awarri and FMCIDE.
+- `facebook/mms-tts-hau` (voice replies) is licensed CC-BY-NC 4.0 (non-commercial). It is used here for a free
+  civic service and can be switched off with `TTS_ENABLED=0`; it will be replaced by an official N-ATLaS voice
+  when one is released.
 
 ## 9. Known limitations
 - **Project names:** wrapped project names are rebuilt from the PDF layout; 22 ambiguous wraps were repaired by

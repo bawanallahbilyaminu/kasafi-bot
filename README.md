@@ -4,9 +4,17 @@ Kasafi Bot answers citizens' questions about the **Sokoto State 2026 Approved Bu
 performance** on Telegram and WhatsApp. People can type or send a **Hausa voice note**. Every answer is built
 from figures extracted from the official budget document and ends with the page numbers it came from.
 
-- **Speech:** `NCAIR1/Hausa-ASR` (official N-ATLaS ASR, Whisper-small)
-- **Language:** `NCAIR1/N-ATLaS` (Llama-3 8B, Hausa/Yoruba/Igbo/English). It turns the question into English
-  plus topic hints, and writes the answer in Hausa or English using only the retrieved facts.
+- **Language:** `NCAIR1/N-ATLaS` (Llama-3 8B, Hausa/Yoruba/Igbo/English) does all question understanding and
+  answer writing. It turns the question into English plus topic hints, and writes the answer in Hausa or English
+  using only the retrieved facts. N-ATLaS is the only language model in the bot. (Keyword rules help match official
+  ministry and LGA names. If an N-ATLaS draft fails the number check below, the verified figures are sent as a
+  fixed template instead. Neither uses another model.)
+- **Voice input:** every voice note is transcribed by the official N-ATLaS speech model, `NCAIR1/Hausa-ASR`
+  (Whisper-small).
+- **Voice replies:** N-ATLaS has no text-to-speech model. For users who cannot read, `facebook/mms-tts-hau`
+  (Meta MMS-TTS Hausa) **only reads out N-ATLaS's finished answer** as a Hausa voice note. It does no
+  understanding or writing. It can be switched off with `TTS_ENABLED=0` and will be replaced by an official
+  N-ATLaS voice when one is released.
 - **Data:** 9,049 budget lines and 1,710 capital projects, extracted from the 231-page budget PDF and checked
   against the document's own totals (3,719 checks pass).
 - **Grounding guard:** every number in an N-ATLaS answer must appear in the retrieved facts. If any doesn't,
@@ -42,8 +50,8 @@ Fill in `.env`:
 Check everything works:
 
 ```bat
-python -m tests.test_questions          :: 15/15 routing + figure checks (no GPU needed)
-python scripts\check_models.py          :: loads N-ATLaS (4-bit) + runs one Hausa round trip
+python -m tests.test_questions          :: speech 4/4 + 31/31 routing and figure checks (no GPU needed)
+python scripts\check_models.py          :: loads N-ATLaS (4-bit) + Hausa-ASR + Hausa TTS, runs one Hausa round trip
 python -m app.cli                       :: chat in the terminal
 ```
 
@@ -59,9 +67,16 @@ python -m app.run_all                   :: Telegram + WhatsApp webhook on port 8
 Keep the laptop on mains power with sleep disabled (Settings → System → Power → Sleep: Never).
 
 ### Hausa voice replies
-On by default: when someone sends a voice note, the bot answers with text **and** a Hausa voice note
-(`facebook/mms-tts-hau`, about 150 MB, downloaded automatically the first time). On Telegram, `/murya` turns voice replies on
-for every answer. `scripts\check_models.py` saves a sample to `evidence\tts_sample.ogg`; listen to it to check.
+On by default (`TTS_ENABLED=1`). When someone sends a voice note, the bot answers with text **and** a Hausa voice
+note, so people who cannot read can still hear the answer. On Telegram, `/murya` turns voice replies on for every
+answer.
+
+- **What reads it out:** N-ATLaS has no text-to-speech model, so `facebook/mms-tts-hau` (about 150 MB, downloaded
+  automatically the first time) reads out the answer N-ATLaS has already written. It adds nothing to the content.
+- **Switching it off:** set `TTS_ENABLED=0` in `.env`. Text answers are unaffected.
+- **Future:** it will be replaced by an official N-ATLaS voice when one is released.
+
+`scripts\check_models.py` saves a sample to `evidence\tts_sample.ogg`; listen to it to check.
 
 ### WhatsApp (Twilio Sandbox)
 1. In the Twilio Console go to **Messaging → Try it out → Send a WhatsApp message**. Note the sandbox
