@@ -111,7 +111,7 @@ async function isAdmin(userId) {
   try {
     const u = await clerkClient.users.getUser(userId)
     admin = (u.emailAddresses || []).some((e) => ADMINS.has(String(e.emailAddress).toLowerCase())
-      && (e.verification?.status ?? 'verified') === 'verified')
+      && e.verification?.status === 'verified')   // fail closed: an email with no verification record is not trusted
   } catch { admin = false }
   adminCache.set(userId, { admin, at: Date.now() })
   return admin
