@@ -27,7 +27,8 @@ def main():
     if serve_http:
         import uvicorn
         t = threading.Thread(target=uvicorn.run, args=(whatsapp_twilio.app,),
-                             kwargs={"host": "0.0.0.0", "port": args.port, "log_level": "info"}, daemon=True)
+                             kwargs={"host": "0.0.0.0", "port": args.port, "log_level": "info",
+                                     "loop": "asyncio"}, daemon=True)
         t.start()
         if config.TWILIO_ACCOUNT_SID:
             log.info("WhatsApp webhook listening on http://localhost:%d/whatsapp", args.port)

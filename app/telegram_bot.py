@@ -418,6 +418,9 @@ def run(engine):
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     app.add_handler(CallbackQueryHandler(on_callback))
     log.info("Kasafi Bot is running on Telegram. Press Ctrl+C to stop.")
+    # a fresh standard event loop for this thread (uvicorn in another thread may have changed the global policy)
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+    asyncio.set_event_loop(asyncio.new_event_loop())
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
