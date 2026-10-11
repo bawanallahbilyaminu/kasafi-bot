@@ -362,6 +362,9 @@ class BudgetStore:
                               "ORDER BY revised_2025 DESC LIMIT 3", args).fetchall()
         for x in ex:
             r.items.append(self._proj_item(x, "An ware kudi a 2025 amma ba a kashe ba:", "Budgeted in 2025 but nothing spent:"))
+        # one ministry/agency: add its full-year 2025 capital spending from the Q4 report (project rows stop at Sep)
+        if p.mda_codes and not p.lga_codes:
+            self.add_perf_2025(r, "exp_admin", "capital", p.mda_codes[0], "Manyan ayyukan wannan ma'aikata/hukuma", "Capital projects of this ministry/agency")
         r.note = "jan_sep"
         return r
 

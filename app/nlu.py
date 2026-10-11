@@ -106,6 +106,8 @@ STATUS_WORDS = ["an fara", "aka fara", "fara a", "ba a kammala", "ba a gama", "b
                 "incomplete", "not completed", "not finished", "abandoned", "watsi", "ba a fara", "sabbin ayyuka",
                 "sababbin ayyuka", "new projects", "started", "still running", "har yanzu", "kammala", "completed",
                 "finished", "dropped", "an daina", "stalled", "tsaya", "tsaye", "status"]
+COUNT_WORDS = ["how many", "number of", "nawa", "guda nawa", "adadin", "yawan", "done", "executed", "implemented",
+               "carried out", "aka yi", "an yi", "aka aiwatar", "an aiwatar"]
 RANK_TOP = ["mafi yawa", "mafi girma", "fi yawa", "fi girma", "mafi samun", "fi samun", "highest", "largest", "biggest",
             "most", "top", "ta fi", "ya fi", "suka fi"]
 RANK_BOTTOM = ["mafi karanci", "mafi kankanta", "fi karanci", "fi kankanta", "mafi kadan", "lowest", "smallest", "least",
@@ -306,6 +308,10 @@ class Understanding:
             p.intent = "greeting"
         elif mentions_projects and any(has_word(both, w) for w in STATUS_WORDS) and (
                 len(p.years) >= 2 or not p.rank_order):
+            p.intent = p.analysis = "project_status"
+        elif (mentions_projects and not p.project_terms and not p.rank_order
+              and any(has_word(both, w) for w in COUNT_WORDS)):
+            # "how many projects (were done) for IDPs / in health / in Tambuwal": count + status, scoped
             p.intent = p.analysis = "project_status"
         elif p.rank_order and not (p.rank_unit == "ministry" and p.mda_codes and not p.function_codes and
                                    p.rank_metric == "allocation" and len(p.mda_codes) == 1 and not mentions_projects

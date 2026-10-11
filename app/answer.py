@@ -219,6 +219,46 @@ ALLOC_CTX = re.compile(r"\b(ware|warewa|kasafi|kasafin|budget|budgeted|allocated
 ALLOC_VERB = re.compile(r"\b(ware|warewa|allocated|allocation|budgeted|approved)\b", re.I)
 
 
+CAPITAL_CTX = re.compile(r"\b(capital|manyan ayyuka|ayyukan raya kasa)\b", re.I)
+
+
+def _capital_sets(ret):
+    """Money values from capital facts (and projects) vs from other facts (totals, personnel, overhead...)."""
+    cap, other = set(), set()
+    for f in ret.facts:
+        if f.is_pct or f.is_count:
+            continue
+        label = f"{f.key} {f.label_en} {f.label_ha}".lower()
+        dest = cap if (f.key.startswith("capital") or "capital" in label or "manyan ayyuka" in label) else other
+        for l in ("ha", "en"):
+            for n in MONEY.findall(f.text(l)):
+                dest.add(_n(n))
+    for i in ret.items:
+        for k in ("amount", "budget_2025", "spent_2025"):
+            if i.get(k) is not None:
+                for l in ("ha", "en"):
+                    for n in MONEY.findall(naira(i[k], l)):
+                        cap.add(_n(n))
+    return cap, other
+
+
+def capital_ok(draft, ret):
+    """A figure described as capital / projects ("₦4.8 million on capital projects") must be a capital figure,
+    not the department's total."""
+    cap, other = _capital_sets(ret)
+    if not cap:
+        return True, None
+    for clause in re.split(r"\.(?=\s|$)|[;\n]|:(?=\s)", draft):
+        for m in MONEY.finditer(clause):
+            n = _n(m.group(1))
+            near = clause[max(0, m.start() - 30):m.start()] + " " + clause[m.end():m.end() + 40]
+            near = re.sub(r"₦\s?\d[\d,]*(?:\.\d+)?.*", "", clause[m.end():m.end() + 40])  # stop at the next figure
+            near = clause[max(0, m.start() - 30):m.start()] + " " + near
+            if CAPITAL_CTX.search(near) and n in other and n not in cap:
+                return False, f"₦{n} presented as capital but it is a total/recurrent figure"
+    return True, None
+
+
 def claims_ok(draft, ret):
     """A figure described as SPENT must be a spending figure, and one described as ALLOCATED must be an allocation.
     Each figure is judged by the words just before it ("na kasafin ₦32.85 biliyan" = allocation), then by the verb
@@ -246,7 +286,7 @@ def claims_ok(draft, ret):
                 return False, f"₦{n} presented as spent but it is an allocation"
             if expect == "alloc" and n not in alloc and n in spend:
                 return False, f"₦{n} presented as allocated but it is spending"
-    return True, None
+    return capital_ok(draft, ret)
 
 
 def grounded(draft, ret, lang):

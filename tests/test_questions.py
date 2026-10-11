@@ -116,9 +116,15 @@ def claim_checks():
         ok, why = grounded(draft, r, "ha")
         if ok != want:
             print(f"FAIL claim: {draft[:70]} -> {ok} {why or ''}"); fails += 1
+    mr = R("How much did the Department for IDPs Matters spend in 2025?")
+    ok, _ = grounded("In 2025 the government spent ₦4.8 million on capital projects for IDPs.", mr, "en")
+    if ok:   # live failure: the department's TOTAL spending presented as capital spending (capital was ₦0)
+        print("FAIL claim: total figure presented as capital was accepted"); fails += 1
+    if e.nlu.parse("how many projects have been done for IDPs in Sokoto in 2025").intent != "project_status":
+        print("FAIL claim: 'how many projects ... for IDPs' not routed to project status"); fails += 1
     if e.nlu.parse("o ana samun shi gaba ga ayyuka na social protection a jihar sokoto.").intent != "project_status":
         print("FAIL claim: ASR variant 'shi gaba' (ci gaba) not routed to project status"); fails += 1
-    print(f"claims: {len(cases) + 1 - fails}/{len(cases) + 1} passed")
+    print(f"claims: {len(cases) + 3 - fails}/{len(cases) + 3} passed")
     return fails
 
 
