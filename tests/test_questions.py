@@ -14,7 +14,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.engine import Engine  # noqa: E402
 
-CASES = [  # question, expected text in the answer
+CASES = [
+    ("how much was spent for Sultan Maccido Institute", "Sultan Maccido Institute"),       # short form of an agency name
+    ("How much was allocated for Infrastructure in 2026", "Ministry of Works"),  # question, expected text in the answer
     ("Nawa aka ware wa lafiya a 2026?", "₦124.41 biliyan"),
     ("Nawa aka kashe a fannin ilimi a 2025?", "₦38.22 biliyan"),
     ("Wadanne ayyuka ne za a yi a Tambuwal?", "Karamar Hukumar Tambuwal"),

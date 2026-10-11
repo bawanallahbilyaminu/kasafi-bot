@@ -20,7 +20,7 @@ SECTOR_WORDS = {
     "021500000000": ["noma", "manoma", "taki", "agriculture", "farming", "farmers", "fertilizer", "fertiliser", "irrigation",
                      "ban ruwa"],
     "025200000000": ["ruwan sha", "rijiya", "rijiyoyi", "burtsatse", "water", "borehole", "boreholes", "water supply"],
-    "023400000000": ["hanya", "hanyoyi", "titi", "tituna", "gada", "gadoji", "road", "roads", "bridge", "works", "ministry of works", "ma'aikatar ayyuka", "ayyukan gine-gine"],
+    "023400000000": ["hanya", "hanyoyi", "titi", "tituna", "gada", "gadoji", "road", "roads", "bridge", "works", "ministry of works", "ma'aikatar ayyuka", "ayyukan gine-gine", "infrastructure", "infrastructures", "ababen more rayuwa", "kayan more rayuwa"],
     "017000000000": ["tsaro", "security", "'yan bindiga", "yan bindiga", "bandits", "vigilante"],
     "017200000000": ["addini", "masallaci", "masallatai", "religious", "mosque", "zakka", "zakat", "hisbah", "almajiri",
                      "aikin hajji", "hajj"],
@@ -169,6 +169,25 @@ class Parsed:
         return {k: getattr(self, k) for k in self.__dataclass_fields__}
 
 
+GENERIC_NAME_WORDS = {
+    "ministry", "agency", "board", "commission", "office", "department", "directorate", "institute", "institution",
+    "college", "school", "schools", "university", "polytechnic", "general", "studies", "state", "local", "government",
+    "affairs", "services", "service", "development", "management", "authority", "council", "corporation", "centre",
+    "center", "programme", "program", "project", "projects", "hospital", "hospitals", "health", "education",
+    "national", "secretariat", "headquarters", "planning", "budget", "economic", "social", "public", "special",
+    "technical", "science", "sciences", "technology", "community", "communities", "resource", "resources", "natural",
+    "matters", "welfare", "relations", "control", "support", "training", "research", "water", "rural", "urban",
+    # common in questions, so they must not pick an agency on their own
+    "nigeria", "central", "administration", "children", "child", "construction", "maintenance", "transfer",
+    "establishment", "estbalishment", "human", "living", "person", "persons", "systems", "staff", "students",
+    "secondary", "internal", "inter", "international", "independent", "protection", "reduction", "responsibility",
+    "market", "price", "goals", "rights", "sustainable", "deputy", "engagement", "acquisition", "cooperation",
+    "multilateral", "contributory", "universal", "female", "medical", "roads", "digital", "communication", "duties",
+    "careers", "reform", "skills", "safety", "specialist", "geographical", "history", "security", "poverty",
+    "industry", "economy", "finance", "energy", "environment", "environmental", "transport", "emergency",
+}
+
+
 class Understanding:
     def __init__(self, budget_db):
         con = sqlite3.connect(budget_db)
@@ -195,6 +214,16 @@ class Understanding:
             toks = [t for t in re.findall(r"[a-z']+", n) if t not in STOP and len(t) > 2]
             acr = re.findall(r"\(([a-z]{3,})\)", n)
             self.mda_tokens.append((code, name, set(toks), acr))
+        # distinctive words: appear in exactly one agency's name and are not generic or a place name
+        # ("Maccido", "Fadama", "Zakat"), so "Sultan Maccido Institute" finds
+        # "Sultan Maccido Institute for Qur'ani & General Studies"
+        freq = {}
+        for code, _n, toks, _a in self.mda_tokens:
+            for t in toks:
+                freq.setdefault(t, set()).add(code)
+        places = {w for names in self.lga_aliases.values() for n in names for w in re.findall(r"[a-z']+", n)} | {"sokoto"}
+        self.mda_unique = {t: next(iter(cs)) for t, cs in freq.items()
+                           if len(cs) == 1 and len(t) >= 5 and t not in GENERIC_NAME_WORDS and t not in places}
 
     def detect_lang(self, t):
         words = re.findall(r"[a-z']+", t)
@@ -225,6 +254,8 @@ class Understanding:
             hit = len(toks & qtok) / len(toks)
             if hit >= 0.99 or (hit >= 0.6 and len(toks & qtok) >= 2):
                 best.append((hit * len(toks), code))
+            elif any(self.mda_unique.get(t) == code for t in toks & qtok):
+                best.append((1.5 + len(toks & qtok), code))
         best.sort(reverse=True)
         for _, code in best[:2]:
             if code not in found:
