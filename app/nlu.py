@@ -143,6 +143,8 @@ COMPARE_WORDS = ["bambanci", "kwatanta", "idan aka kwatanta", "compared", "compa
                  "canji", "history", "tarihi"] + GROWTH_WORDS + DECLINE_WORDS
 PROJECT_NOUNS = ["ayyuka", "ayyukan", "aiki", "aikin", "project", "projects"]
 UNIT_LGA = ["kananan hukumomi", "karamar hukuma", "lga", "lgas", "local government", "local governments"]
+QUARTER_RE = (r"\bq([1-4])\b|\b(first|second|third|fourth) quarter\b|\bend of (march|june|september)\b|"
+              r"\b(?:kwata|zango) na (farko|biyu|uku|hudu)\b")
 YEAR_RE = re.compile(r"\b(2023|2024|2025|2026|2027|2028)\b")
 GREETING_WORDS = ["sannu", "salam", "assalamu", "hello", "hi", "barka", "ina kwana", "ina wuni", "good morning",
                   "/start", "start", "taimako", "help"]
@@ -189,6 +191,7 @@ class Parsed:
     rank_unit: str = None     # ministry | lga | project
     compare: bool = False
     off_topic: bool = False
+    quarter: int = None       # 1-4 when the question names a quarter ("by the end of Q2")
 
     def as_dict(self):
         return {k: getattr(self, k) for k in self.__dataclass_fields__}
@@ -379,6 +382,11 @@ class Understanding:
             elif re.search(r"\b(this year|bana|wannan shekara(r)?)\b", t):
                 p.years = [2026]
         p.performance = any(has_word(both, w) for w in PERF_WORDS)
+        qm = re.search(QUARTER_RE, both)
+        if qm:
+            w = next(g for g in qm.groups() if g)
+            p.quarter = {"1": 1, "2": 2, "3": 3, "4": 4, "first": 1, "second": 2, "third": 3, "fourth": 4, "march": 1, "june": 2,
+                         "september": 3, "december": 4, "farko": 1, "biyu": 2, "uku": 3, "hudu": 4}.get(w)
         for m, words in MEASURE_WORDS.items():
             if any(has_word(both, w) for w in words):
                 p.measure = m

@@ -203,6 +203,15 @@ Third run, after that fix: **60/60 answers correct**, median 4.8 s (`bench/repor
 shows 59/60 because N-ATLaS wrote "kashi 41.8." and the scorer missed a percentage followed by a full stop; the
 scorer is fixed. All 5 fallbacks were checks catching a draft that left out or changed the requested figure.
 
+**Complex questions (live tests, 11 Oct).** "How much of the 2025 budget is designated to renovate PHCs in Sokoto South, and
+has any been spent?" was answered "no money is designated and none spent" (no figure, so the number check could not
+catch it). Now: (1) a topic in a place (ministry, sector or project words + LGA) returns that topic's projects in each
+LGA, or says plainly that none is tagged there and lists the state-wide projects of that topic with their 2025 budget
+and spending, noting that the budget does not split state-wide projects by LGA; (2) questions naming a quarter
+("by the end of Q2") use that quarter's report (original budget, spent, unspent, share spent); (3) a sentence saying
+"no money" / "nothing spent" without a figure is rejected when the facts show amounts. 8 such questions are in the
+benchmark (`complex`).
+
 The first-run held-out scores (88–91%) are the honest estimate for unseen questions with the rules alone; in the
 live system N-ATLaS's translation and topic hints are added before routing. `python bench/run_benchmark.py --llm`
 measures the full system (N-ATLaS answer rate, why checks replaced drafts, time per question).

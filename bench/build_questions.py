@@ -249,6 +249,31 @@ for q, lang in [("Who is the governor of Sokoto State?", "en"), ("What is the we
                 ("What is the federal budget for 2026?", "en"), ("Can you write me a poem?", "en")]:
     add("out_of_scope", 3, lang, q, ["none", "greeting"], scope="out")
 
+# ------------------------------------------------------------------ a topic in a place, and quarters (live questions, 11 Oct)
+def proj(like, col):
+    r = con.execute(f"SELECT {col} FROM projects WHERE project LIKE ? ORDER BY {col} DESC LIMIT 1", (like,)).fetchone()
+    return r[0] if r else None
+
+
+AG, PHC = "021500000000", "052100300100"
+add("complex", 4, "en", "How much money from the 2025 state budget is specifically designated to renovate primary health centers in "
+    "Sokoto South LGA, and according to the latest performance report, has any of that money actually been spent yet?",
+    ["lga"], lga="33311700", figures=fig(proj("Investment Funds i.e for renovations of 244%", "revised_2025")))
+add("complex", 4, "ha", "Nawa aka ware wa gyaran cibiyoyin lafiya a Sokoto ta Kudu a 2025, kuma an kashe wani abu?",
+    ["lga"], lga="33311700", figures=fig(proj("Investment Funds i.e for renovations of 244%", "perf_2025_jan_sep")))
+add("complex", 4, "en", "In the 2025 Sokoto State approved budget, how does the initial capital expenditure allocation for the Ministry of "
+    "Agriculture compare to the actual funds released by the end of Q2, and what specific percentage of that variance impacted the "
+    "fertilizer subsidy programs for dry-season farmers in the Goronyo and Wamakko LGAs?",
+    ["lga"], lga="33320500", figures=fig(perf(AG, "2025Q2", "capital")["ytd_actual"]), texts=["fertilizer"])
+add("complex", 3, "en", "Fertilizer spending in Goronyo in 2025", ["lga"], lga="33320500",
+    figures=fig(proj("Purchase of 160 Trucks of Assorted Fertilizers%", "perf_2025_jan_sep")))
+add("complex", 3, "ha", "Ayyukan noma a Wamakko", ["lga"], lga="33312100", texts=["FASCO"])
+add("complex", 3, "en", "How much is budgeted for borehole projects in Kebbe in 2026?", ["lga"], lga="33331000", texts=["borehole"])
+add("complex", 3, "en", "How much did the Ministry of Agriculture spend on capital projects by the end of Q2 2025?", ["mda"], mda=AG,
+    figures=fig(perf(AG, "2025Q2", "capital")["ytd_actual"]))
+add("complex", 3, "ha", "Nawa aka kashe a fannin lafiya zuwa karshen kwata na biyu na 2025?", ["mda"], mda="052100000000",
+    figures=fig(perf("052100000000", "2025Q2")["ytd_actual"]))
+
 # ------------------------------------------------------------------ multi-entity (known limitation: one subject per question)
 for q, lang in [("Compare health and education budgets in 2026", "en"), ("Nawa aka ware wa lafiya da ilimi a 2026?", "ha"),
                 ("How much for services, agriculture and industry?", "en"), ("Health vs agriculture 2025 spending", "en")]:

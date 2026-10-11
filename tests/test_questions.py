@@ -145,6 +145,10 @@ def claim_checks():
     return fails
 
 
+PHC_Q = ("How much money from the 2025 state budget is specifically designated to renovate primary health centers in Sokoto "
+         "South LGA, and according to the latest performance report, has any of that money actually been spent yet?")
+
+
 def natlas_replay_checks():
     """Replays answers the real N-ATLaS gave in the Colab benchmark run (bench/results_llm.jsonl)."""
     class Fake:
@@ -169,6 +173,13 @@ def natlas_replay_checks():
         ("Nawa aka ware wa kariyar zamantakewa a 2026?", {"english": "How much was allocated to social protection in 2026?",
          "topic": "social protection", "wants": "allocation", "year": 2026},
          "An ware ₦34.37 biliyan don kariyar zamantakewa a 2026, ciki har da manyan ayyuka ₦13.88 biliyan.", "₦34.37", True),
+        # live Telegram, 11 Oct: a "no money" answer with no figure, while ₦7.89bn of state-wide PHC renovation existed
+        (PHC_Q, {"english": PHC_Q, "wants": "spending", "year": 2025},
+         "No money from the 2025 state budget is specifically designated to renovate primary health centers in Sokoto South LGA, "
+         "and no money has been spent yet according to the latest performance report.", "₦7.89", False),
+        (PHC_Q, {"english": PHC_Q, "wants": "spending", "year": 2025},
+         "No PHC renovation project is tagged to Sokoto South LGA. State-wide, ₦7.89 billion was budgeted in 2025 to renovate 244 "
+         "ward-level health facilities, and ₦42.41 million of it was spent by September 2025.", "₦42.41", True),
     ]
     for q, und, draft, must, natlas in cases:
         e.llm = Fake(und, draft)

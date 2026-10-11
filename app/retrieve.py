@@ -71,6 +71,8 @@ class Retrieval:
     items: list = field(default_factory=list)  # e.g. projects: dicts with name, amount, lga, page
     pages: set = field(default_factory=set)
     note: str = ""
+    lines_ha: list = field(default_factory=list)   # statements without figures, e.g. "no health project is tagged to X"
+    lines_en: list = field(default_factory=list)
 
     def add(self, f):
         self.facts.append(f)
@@ -137,6 +139,27 @@ class BudgetStore:
                        f"Actual spending 2025 ({PERIOD_EN[self.full_2025]})", q["source_page"], source=self.full_2025))
         if row26:
             r.add(Fact("trend_2026", row26["approved_2026"], "Kasafin 2026 da aka amince", "2026 approved budget", row26["source_page"]))
+
+    def add_perf_quarter(self, r, kind, m, code, yr, qn, mha, men):
+        """Spending by the end of a named quarter ("by the end of Q2 2025" = January-June), against the original budget."""
+        rep = f"{yr}Q{qn}"
+        q = self.perf(kind, m, code, rep)
+        if not q or not q["budget_revised"]:
+            return False
+        if q["budget_original"]:
+            r.add(Fact(f"{m}_orig{yr}", q["budget_original"], f"{mha} — kasafin {yr} na asali",
+                       f"{men} — original {yr} budget", q["source_page"], source=rep))
+        if abs((q["budget_revised"] or 0) - (q["budget_original"] or 0)) > 1:
+            r.add(Fact(f"{m}_revq{yr}", q["budget_revised"], f"{mha} — kasafin {yr} kamar yadda yake a karshen Q{qn}",
+                       f"{men} — {yr} budget as revised at end of Q{qn}", q["source_page"], source=rep))
+        r.add(Fact(f"{m}_spentq{yr}", q["ytd_actual"], f"{mha} — abin da aka kashe ({PERIOD_HA.get(rep, rep)})",
+                   f"{men} — spent ({PERIOD_EN.get(rep, rep)})", q["source_page"], source=rep))
+        base = q["budget_original"] or q["budget_revised"]
+        r.add(Fact(f"{m}_gapq{yr}", base - q["ytd_actual"], f"{mha} — sauran kasafin na asali da ba a kashe ba zuwa karshen Q{qn}",
+                   f"{men} — original budget not yet spent by end of Q{qn}", q["source_page"], source=rep))
+        r.add(Fact(f"{m}_pctq{yr}", pct(q["ytd_actual"], base), f"{mha} — kaso na kasafin asali da aka kashe zuwa karshen Q{qn}",
+                   f"{men} — share of the original budget spent by end of Q{qn}", q["source_page"], is_pct=True, source=rep))
+        return True
 
     def add_perf_2026(self, r, kind, measure, code, mha, men):
         q = self.perf(kind, measure, code, self.latest_2026)
@@ -221,6 +244,10 @@ class BudgetStore:
         meas_perf = measures if measures != ["total"] else ["total", "capital"]
         if perf_block:
             for m in meas_perf:
+                qyr = 2026 if (2026 in p.years and 2025 not in p.years) else 2025
+                if p.quarter and self.add_perf_quarter(r, "exp_admin", m, code, qyr, p.quarter,
+                                                       MEASURE_HA[m].capitalize(), MEASURE_EN[m].capitalize()):
+                    continue
                 if self.add_perf_2025(r, "exp_admin", m, code, MEASURE_HA[m].capitalize(), MEASURE_EN[m].capitalize()):
                     continue
                 row = self.admin_row(code, m)
@@ -440,6 +467,8 @@ class BudgetStore:
         return r
 
     def lga(self, p, code):
+        if p.mda_codes or p.function_codes or p.project_terms:
+            return self.lga_topic(p)
         r = Retrieval("lga")
         if code.startswith("X-"):          # a real LGA with no projects tagged to it in the documents
             nm = code[2:].title()
@@ -466,6 +495,108 @@ class BudgetStore:
                        f"Total of {n[0]} capital projects in {name} (2026)", 0))
         r.items = self.projects(p, location=code, limit=5)
         r.note = "statewide"  # many projects are budgeted 'State Wide' and also benefit the LGA
+        return r
+
+    def _lga_name(self, code):
+        row = self.con.execute("SELECT name FROM line_items WHERE kind='exp_location' AND measure='total' AND code=?", (code,)).fetchone()
+        if not row:
+            row = self.con.execute("SELECT location_name FROM projects WHERE location_code=? LIMIT 1", (code,)).fetchone()
+        return row[0].title() if row else code
+
+    def lga_topic(self, p):
+        """A topic in a place: "PHC renovation in Sokoto South", "fertilizer in Goronyo and Wamakko".
+        Projects of that topic tagged to each LGA; if none, says so plainly and lists the state-wide projects of that
+        topic (the budget does not say how much of those goes to each LGA). For a ministry, adds its own figures,
+        including a quarter's spending when the question names one (Q2 = January-June)."""
+        lgas = [c for c in p.lga_codes if not c.startswith("X-")][:3]
+        untagged = [c[2:].title() for c in p.lga_codes if c.startswith("X-")]
+        names = [self._lga_name(c) for c in lgas] + untagged
+        scope, args, topic = [], [], ""
+        if p.mda_codes:
+            c = p.mda_codes[0]
+            scope, args = (["mda_code LIKE ?"], [c[:4] + "%"]) if c[4:] == "0" * 8 else (["mda_code = ?"], [c])
+            topic = self.name_of(c)
+        elif p.function_codes:
+            fc = p.function_codes[0]
+            scope, args = ["function_code LIKE ?"], [fc + "%"]
+            row = self.con.execute("SELECT name FROM line_items WHERE kind='exp_function' AND measure='total' AND code=?", (fc,)).fetchone()
+            topic = row[0].title() if row else fc
+        terms = [f'"{t}"' for t in p.project_terms]
+        label = list(p.project_terms)
+        if re.search(r"renovat|rehabilit|repair|\bgyaran (?!kasafi)", (p.text or "").lower()):   # "renovate PHCs", "rehabilitation of schools"
+            terms += ["renov*", "rehabil*", "repair*"]   # porter stems ("renovations" -> renov)
+            label.append("renovation")
+        topic_ha = topic
+        if label:
+            lab_ha = ["gyara" if x == "renovation" else x for x in label]
+            topic_ha = f"{', '.join(lab_ha)} ({topic})" if topic else ", ".join(lab_ha)
+            topic = f"{', '.join(label)} ({topic})" if topic else ", ".join(label)
+        y25 = 2025 in p.years and 2026 not in p.years
+        col = "revised_2025" if y25 else "approved_2026"
+        fts = "project : (" + " OR ".join(terms) + ")" if terms else None
+
+        def fetch(use_scope, use_terms, loc_sql, loc_args, limit):
+            where, a = [f"p.{col} > 0"], []
+            if use_scope and scope:
+                where += ["p." + w for w in scope]; a += list(args)
+            where.append(loc_sql); a += list(loc_args)
+            if use_terms and fts:
+                sql = (f"SELECT p.* FROM projects_fts f JOIN projects p ON p.id=f.rowid WHERE projects_fts MATCH ? AND "
+                       + " AND ".join(where) + f" ORDER BY p.{col} DESC LIMIT ?")
+                return self.con.execute(sql, [fts, *a, limit]).fetchall()
+            if not use_scope or not scope:
+                return []
+            return self.con.execute("SELECT p.* FROM projects p WHERE " + " AND ".join(where) + f" ORDER BY p.{col} DESC LIMIT ?",
+                                    [*a, limit]).fetchall()
+
+        # the narrowest filter that finds anything: topic words within the ministry, then topic words, then the ministry
+        plans = [(True, True), (False, True), (True, False)] if fts else [(True, False)]
+        anywhere = "p.location_code IS NOT NULL"
+        plan = next((pl for pl in plans if fetch(*pl, anywhere, [], 1)), plans[-1])
+        r = Retrieval("lga", f"{topic_ha} — {', '.join('Karamar Hukumar ' + n for n in names)}", f"{topic} — {', '.join(n + ' LGA' for n in names)}")
+        hit_any = False
+        for code, nm in zip(lgas, names):
+            rows = fetch(*plan, "p.location_code = ?", [code], 6)
+            if rows:
+                hit_any = True
+                for x in rows:
+                    r.items.append(self._proj_item(x, f"A {nm}:", f"In {nm}:"))
+            else:
+                r.lines_ha.append(f"Babu wani aiki na {topic_ha} a kasafin da aka sanya wa Karamar Hukumar {nm} kai tsaye.")
+                r.lines_en.append(f"No {topic} project in the budget is tagged to {nm} LGA specifically.")
+        for nm in untagged:
+            r.lines_ha.append(f"Babu wani aiki a kasafin da aka sanya wa Karamar Hukumar {nm} kai tsaye.")
+            r.lines_en.append(f"No project in the budget is tagged to {nm} LGA specifically.")
+        sw = fetch(*plan, "p.location_name = 'State Wide'", [], 5)
+        if sw:
+            for x in sw:
+                r.items.append(self._proj_item(x, "Ayyukan duk jiha (ba a raba su ga kananan hukumomi ba):",
+                                               "State-wide projects (not divided by LGA):"))
+            r.lines_ha.append("Kasafin bai fadi nawa ne daga ayyukan duk jiha zai tafi kowace karamar hukuma ba.")
+            r.lines_en.append("The budget does not say how much of the state-wide projects goes to each LGA.")
+        # the ministry's own figures
+        if p.mda_codes:
+            c = p.mda_codes[0]
+            m = p.measure if p.measure in ("personnel", "overhead", "capital") else "total"
+            mha, men = f"{self.name_of(c)} — {MEASURE_HA[m]}", f"{self.name_of(c)} — {MEASURE_EN[m]}"
+            yr = 2025 if y25 or (p.performance and 2026 not in p.years) else (p.years[0] if p.years else 2026)
+            if p.quarter and self.add_perf_quarter(r, "exp_admin", m, c, yr, p.quarter, mha, men):
+                pass
+            elif yr == 2025 or p.performance:
+                self.add_perf_2025(r, "exp_admin", m, c, mha, men)
+            else:
+                row = self.admin_row(c, m)
+                if row:
+                    r.add(Fact(f"{m}_2026", row["approved_2026"], f"{mha} — kasafin 2026", f"{men} — 2026 budget", row["source_page"]))
+            if p.quarter and r.items:
+                r.lines_ha.append("Kudin da aka kashe wa kowane aiki an buga shi ne kawai na Janairu-Satumba 2025; "
+                                  "na kowace kwata (quarter) yana samuwa ne ga ma'aikata gaba daya kawai.")
+                r.lines_en.append("Spending per project is only published for January-September 2025; quarterly figures exist "
+                                  "only for whole ministries.")
+        if not hit_any and not sw and not r.facts:
+            r.lines_ha.append(f"Babu wani aiki na {topic_ha} a kasafin.")
+            r.lines_en.append(f"No {topic} project was found in the budget.")
+        r.note = "jan_sep" if r.items else ""
         return r
 
     def revenue(self, p):

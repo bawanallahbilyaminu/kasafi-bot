@@ -76,6 +76,7 @@ def facts_block(ret, lang):
     lines = []
     if subject:   # without this, N-ATLaS sees "Total budget: ..." and may say the agency is not in the facts
         lines.append(f"DUKKAN ADADIN DA KE KASA NA: {subject}" if lang == "ha" else f"ALL FIGURES BELOW ARE FOR: {subject}")
+    lines += [f"- {x}" for x in (ret.lines_ha if lang == "ha" else ret.lines_en)]
     lines += [f"- {f.text(lang)}" for f in ret.facts]
     for i in ret.items:
         if i["type"] == "project":
@@ -101,10 +102,11 @@ def focus(ret, years, compare=False):
     ys = {y for y in (years or []) if y}
     if compare or not ys or 2026 in ys:
         return ret
-    f = Retrieval(ret.intent, ret.subject_ha, ret.subject_en, note=ret.note)
+    f = Retrieval(ret.intent, ret.subject_ha, ret.subject_en, note=ret.note, lines_ha=ret.lines_ha, lines_en=ret.lines_en)
     f.facts = [x for x in ret.facts if x.year is None or x.year in ys]
+    f.items = [i for i in ret.items if i["type"] == "status_project"]   # these carry their 2025 budget and spending
     f.pages = ret.pages
-    if not f.facts:          # nothing for that year: fall back to everything rather than say nothing
+    if not f.facts and not f.items:          # nothing for that year: fall back to everything rather than say nothing
         return ret
     return f
 
@@ -165,7 +167,9 @@ def template_answer(ret, lang):
     if not ret.facts and not ret.items:
         return NOT_FOUND_HA if lang == "ha" else NOT_FOUND_EN
     head = {"ha": f"*{ret.subject_ha}*" if ret.subject_ha else "", "en": f"*{ret.subject_en}*" if ret.subject_en else ""}[lang]
-    body = []
+    body = list(ret.lines_ha if lang == "ha" else ret.lines_en)
+    if body and (ret.facts or ret.items):
+        body.append("")
     for f in ret.facts[:18]:
         body.append(f"• {f.text(lang)}")
     if ret.items:
@@ -189,7 +193,8 @@ def _n(s):
 def allowed_numbers(ret, lang):
     allowed = set()
     texts = [f.text(l) for f in ret.facts for l in ("ha", "en")]
-    texts += [naira(i["amount"], l) for i in ret.items for l in ("ha", "en")] + [i["name"] for i in ret.items]
+    texts += [naira(i[k], l) for i in ret.items for k in ("amount", "budget_2025", "spent_2025") if i.get(k) is not None
+              for l in ("ha", "en")] + [i["name"] for i in ret.items]
     texts += [str(y) for y in range(2020, 2031)] + [f.label_en for f in ret.facts]
     for t in texts:
         for n in NUM_IN_TEXT.findall(t):
@@ -364,6 +369,27 @@ def required_ok(draft, ret, keys, lang):
     return False, f"draft does not state the requested figure ({facts[0].text(lang)})"
 
 
+NEG_MONEY = re.compile(r"\bno (money|funds?|allocation|amount)\b|\bnothing (has been |was |is )?(spent|allocated|designated|budgeted)\b|"
+                       r"\b(has|have|had) not (yet )?been spent\b|\bhasn't been spent\b|\bnot (a single|any) (naira|kobo)\b|"
+                       r"\bbabu (ko sisi|kudi|kudin)\b|\bba a (ware|kashe) (ko sisi|ko kwabo|kudi)\b", re.I)
+
+
+def neg_ok(draft, ret):
+    """A sentence that says "no money" / "nothing has been spent" without a figure must not contradict the facts
+    (live case: "No money ... is designated ... and no money has been spent" while the facts showed amounts)."""
+    spend, alloc = _money_sets(ret)
+    spend = {n for n in spend if n not in ("0",)}
+    alloc = {n for n in alloc if n not in ("0",)}
+    for clause in re.split(r"\.(?=\s|$)|[;\n]", draft or ""):   # whole sentences: "₦7.47bn ... amma ba a kashe ko sisi ba" is fine
+        m = NEG_MONEY.search(clause)
+        if not m or re.search(r"\d", re.sub(r"\b20\d\d\b", "", clause)):   # has a figure or a count ("28 projects ... nothing spent")
+            continue
+        about_spend = bool(re.search(r"spent|kashe", m.group(0), re.I))
+        if (spend if about_spend else alloc | spend):
+            return False, f"draft says '{m.group(0)}' but the facts show amounts"
+    return True, None
+
+
 def grounded(draft, ret, lang, required=None):
     if required:
         ok, why = required_ok(draft, ret, required, lang)
@@ -371,6 +397,9 @@ def grounded(draft, ret, lang, required=None):
             return False, why
     if (ret.facts or ret.items) and NO_INFO.search(draft or ""):
         return False, "N-ATLaS said there was no information, but figures were found"
+    ok, why = neg_ok(draft, ret)
+    if not ok:
+        return False, why
     allowed = allowed_numbers(ret, lang) | {str(i) for i in range(0, 11)} | {"100"}
     for n in NUM_IN_TEXT.findall(draft):
         k = _n(n)
