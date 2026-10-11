@@ -42,6 +42,7 @@ ASR_ENABLED = env("ASR_ENABLED", "1") == "1"
 
 # --- Hausa voice replies (TTS) ---
 TTS_MODEL = env("TTS_MODEL", "facebook/mms-tts-hau")
+TTS_RATE = float(env("TTS_RATE", "0.9"))
 TTS_ENABLED = env("TTS_ENABLED", "1") == "1"
 VOICE_REPLY = env("VOICE_REPLY", "voice")   # voice = reply with a voice note when the user sent one | always | never
 

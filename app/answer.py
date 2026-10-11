@@ -10,6 +10,7 @@ import re
 
 from .config import BUDGET_TITLE_EN, BUDGET_TITLE_HA
 from .fmt import naira, pct_str
+from .retrieve import Retrieval
 
 HELP_HA = ("Sannu! Ni ne *Kasafi Bot* — ina amsa tambayoyi game da Kasafin Kudin Jihar Sokoto na 2026 "
            "da yadda aka aiwatar da kasafin 2025, daga takardun gwamnati kai tsaye.\n\n"
@@ -59,19 +60,36 @@ def citation(ret, lang):
 
 
 def facts_block(ret, lang):
+    """Facts for N-ATLaS. Every item line carries its year, so a 2026 allocation is never read as 2025 spending."""
+    b26 = "kasafin 2026" if lang == "ha" else "2026 budget"
     lines = [f"- {f.text(lang)}" for f in ret.facts]
     for i in ret.items:
         if i["type"] == "project":
             extra = f" ({i['lga'].title()})" if i.get("lga") and i["lga"] != "State Wide" else ""
-            lines.append(f"- {'Aiki' if lang == 'ha' else 'Project'}: {i['name']}{extra} — {naira(i['amount'], lang)}")
+            lines.append(f"- {'Aiki' if lang == 'ha' else 'Project'} ({b26}): {i['name']}{extra} — {naira(i['amount'], lang)}")
         elif i["type"] == "agency":
-            lines.append(f"- {'Hukuma' if lang == 'ha' else 'Agency'}: {i['name']} — {naira(i['amount'], lang)}")
+            lines.append(f"- {'Hukuma' if lang == 'ha' else 'Agency'} ({b26}): {i['name']} — {naira(i['amount'], lang)}")
         elif i["type"] == "status_project":
             lines.append(f"- {i['group_en'] if lang == 'en' else i['group_ha']} {i['name']} — 2025: {naira(i['budget_2025'], lang)}, "
                          f"{'an kashe' if lang == 'ha' else 'spent'}: {naira(i['spent_2025'], lang)}, 2026: {naira(i['amount'], lang)}")
         elif i["type"] == "category":
-            lines.append(f"- {'Rabe' if lang == 'ha' else 'Category'}: {i['name']} — {naira(i['amount'], lang)}")
+            lines.append(f"- {'Rabe' if lang == 'ha' else 'Category'} ({b26}): {i['name']} — {naira(i['amount'], lang)}")
     return "\n".join(lines)
+
+
+def focus(ret, years, compare=False):
+    """What N-ATLaS may write from. When the question is about a past year only (e.g. 2025 spending), it gets
+    only that year's facts (plus undated ones such as counts). The 2026 items are still shown to the user,
+    added by code under the answer. Prevents a real-but-wrong-year number from passing the grounding check."""
+    ys = {y for y in (years or []) if y}
+    if compare or not ys or 2026 in ys:
+        return ret
+    f = Retrieval(ret.intent, ret.subject_ha, ret.subject_en, note=ret.note)
+    f.facts = [x for x in ret.facts if x.year is None or x.year in ys]
+    f.pages = ret.pages
+    if not f.facts:          # nothing for that year: fall back to everything rather than say nothing
+        return ret
+    return f
 
 
 def items_block(ret, lang):

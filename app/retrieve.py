@@ -48,6 +48,12 @@ class Fact:
     is_count: bool = False
     source: str = "budget2026"   # budget2026 | 2025Q4 | 2026Q2 ...
 
+    @property
+    def year(self):
+        """Budget year the figure belongs to (from its key, e.g. 'total_spent2025'); None if undated."""
+        ys = re.findall(r"20\d\d", self.key)
+        return int(ys[-1]) if ys else None
+
     def text(self, lang):
         if self.is_count:
             v = f"{int(self.value):,}"

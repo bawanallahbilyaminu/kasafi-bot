@@ -138,8 +138,13 @@ How the bot uses them:
 ## 5c. Hausa voice replies
 When a user sends a voice note (or turns on `/murya`), the bot also replies with a **Hausa voice note**. The
 headline of the answer is converted to speakable Hausa by `app/speak.py`:
-- numbers and naira amounts become Hausa words: "₦124.41 biliyan" → "Naira biliyan dari da ashirin da hudu da
-  miliyan dari hudu da goma"; "kashi 10.6 cikin 100" → "kashi goma digo shida cikin dari"
+- numbers and naira amounts become Hausa words, in whatever order the answer writes them ("₦8.75 biliyan",
+  "Naira biliyan 8.75", "biliyan 8.75", "8.75bn" all → "naira biliyan takwas da miliyan ɗari bakwai da hamsin");
+  "kashi 10.6 cikin 100" → "kashi goma ɗigo shida cikin ɗari"
+- text is lowercased and common words get their standard spelling with hooked letters (ɗari, huɗu, kuɗi, ƙaramar…),
+  because the MMS Hausa voice was trained on standard orthography and its alphabet has no capitals, digits or
+  punctuation
+- pauses are inserted by code at every comma and full stop; speaking rate 0.9 (`TTS_RATE`) for clearer figures
 - markdown and sources are removed
 
 The text is then synthesised by **Meta MMS-TTS Hausa** (`facebook/mms-tts-hau`, VITS, CC-BY-NC 4.0) and encoded as
@@ -156,6 +161,12 @@ OGG/Opus.
 ## 6. Answer safety (grounding)
 - The model never sees the database. It sees only a short list of facts, each already formatted
   (for example `₦124.41 biliyan`).
+- **Year focus:** when a question is about a past year only (e.g. "how much was spent in 2025"), N-ATLaS receives
+  only that year's facts. The 2026 breakdown and projects are added under its answer by code, labelled "(2026)".
+  This closed a real failure found in testing: a 2025 social-protection question was answered with a 2026
+  sub-category allocation (₦8.75bn) instead of the ₦16.22bn spent in 2025. The number existed in the facts, so the
+  number check alone passed it. `tests/test_questions.py` now checks this case.
+- Every project, agency and category line given to N-ATLaS carries its year ("Rabe (kasafin 2026): …").
 - `answer.grounded()` extracts every number from the draft. If any number isn't in the facts, the draft is
   rejected and logged (`grounding_fail`), and the template answer is sent.
 - Page citations are added by code, not by the model.

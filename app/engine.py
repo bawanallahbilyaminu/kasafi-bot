@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 
 from . import config
-from .answer import HELP_EN, HELP_HA, citation, facts_block, grounded, items_block, notes_block, template_answer
+from .answer import HELP_EN, HELP_HA, citation, facts_block, focus, grounded, items_block, notes_block, template_answer
 from .logstore import LogStore, user_hash
 from .nlu import Understanding
 from .retrieve import BudgetStore
@@ -108,7 +108,8 @@ class Engine:
         t2 = time.time()
         ret = self.store.retrieve(p)
         rec["ms_retrieve"] = int((time.time() - t2) * 1000)
-        facts = facts_block(ret, lang)
+        llm_ret = focus(ret, p.years, p.compare)      # past-year questions: N-ATLaS sees only that year's facts
+        facts = facts_block(llm_ret, lang)
 
         # 3. write: N-ATLaS drafts from facts only; every number must be in the facts
         t3 = time.time()
@@ -116,7 +117,7 @@ class Engine:
         if (ret.facts or ret.items) and self.llm and self.llm.enabled:
             try:
                 draft = self.llm.write(text, facts, lang)
-                ok, bad = grounded(draft, ret, lang)
+                ok, bad = grounded(draft, llm_ret, lang)
                 if ok and draft:
                     answer, source = draft, "natlas"
                     # keep the full figures list under the prose so citizens can check them

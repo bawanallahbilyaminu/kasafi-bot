@@ -52,16 +52,50 @@ def speech_checks():
     from app.speak import number_words, to_speech
     cases = [(number_words(2026), "dubu biyu da ashirin da shida"), (number_words(15), "goma sha biyar"),
              (number_words(124410000000), "biliyan dari da ashirin da hudu da miliyan dari hudu da goma"),
-             (to_speech("An kashe kashi 10.6 cikin 100."), "kashi goma digo shida cikin dari")]
+             (to_speech("An kashe kashi 10.6 cikin 100."), "kashi goma ɗigo shida cikin ɗari"),
+             # every order N-ATLaS writes money in
+             (to_speech("An kashe Naira biliyan 8.75 a 2025."), "naira biliyan takwas da miliyan ɗari bakwai da hamsin"),
+             (to_speech("An kashe biliyan 16.22."), "biliyan goma sha shida da miliyan ɗari biyu da ashirin"),
+             (to_speech("Kasafin ya kai ₦32.85 biliyan."), "naira biliyan talatin da biyu da miliyan ɗari takwas da hamsin"),
+             (to_speech("An kashe 16.22 biliyan."), "biliyan goma sha shida"),
+             (to_speech("An kashe kashi 49.4%."), "kashi arba'in da tara ɗigo huɗu cikin ɗari"),
+             (to_speech("A 2025, an kashe."), "biyar, an kashe"),
+             (to_speech("Karamar Hukumar Tambuwal"), "ƙaramar hukumar tambuwal")]
     bad = [(got, want) for got, want in cases if want not in got]
+    bad += [(c[0], "no digits") for c in cases if any(ch.isdigit() for ch in c[0])]
     for got, want in bad:
         print(f"FAIL speech: expected '{want}' in '{got}'")
     print(f"speech: {len(cases) - len(bad)}/{len(cases)} passed")
     return len(bad)
 
 
+def year_checks():
+    """A 2025 question must not be answered with a 2026 figure (real bug: social protection 2025 got the
+    2026 'Social Protection (other)' allocation, ₦8.75bn, instead of ₦16.22bn spent)."""
+    class FakeLLM:
+        enabled, model_id = True, "fake"
+        def __init__(self, draft): self.draft = draft
+        def understand(self, text): return {}
+        def write(self, q, facts, lang): self.facts = facts; return self.draft
+    e = Engine(load_models=False)
+    q = "nawa aka kashe a social protection a shekara ta 2025 a sokoto?"
+    fails = 0
+    e.llm = FakeLLM("An kashe Naira biliyan 8.75 a fannin kare zamantakewa a shekarar 2025.")
+    r = e.handle_text("test", "t", q)
+    if "8.75" in e.llm.facts or not r.text.lstrip().startswith("*"):
+        print("FAIL year: wrong-year figure reached N-ATLaS or passed the grounding check"); fails += 1
+    if "16.22" not in r.text:
+        print("FAIL year: template answer lacks the 2025 spend"); fails += 1
+    e.llm = FakeLLM("A shekarar 2025, an kashe ₦16.22 biliyan, kashi 49.4 cikin 100 na kasafin ₦32.85 biliyan.")
+    r = e.handle_text("test", "t", q)
+    if not r.text.startswith("A shekarar 2025") or "Rabe-rabensa (2026)" not in r.text:
+        print("FAIL year: correct 2025 draft rejected, or 2026 breakdown not shown under it"); fails += 1
+    print(f"year focus: {3 - fails}/3 passed")
+    return fails
+
+
 def main():
-    speech_fails = speech_checks()
+    speech_fails = speech_checks() + year_checks()
     e = Engine(load_models=False)
     fails = 0
     for q, want in CASES:

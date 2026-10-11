@@ -2,7 +2,9 @@
 
 - numbers -> Hausa words (124 -> "dari da ashirin da hudu")
 - "₦124.41 biliyan" -> "Naira biliyan dari da ashirin da hudu da miliyan dari hudu da goma"
-- "kashi 10.6 cikin 100" -> "kashi goma digo shida cikin dari"
+- "kashi 10.6 cikin 100" -> "kashi goma digo shida cikin ɗari"
+- "Naira biliyan 8.75", "biliyan 8.75", "8.75 biliyan", "₦8.75bn" -> "naira biliyan takwas da miliyan ɗari bakwai da hamsin"
+- lowercase, with the hooked letters (ɓ ɗ ƙ) restored in common words: the voice model's alphabet
 - markdown, emoji, bullets and the source line are removed
 - only the headline part of the answer is kept (short voice notes)
 """
@@ -82,23 +84,54 @@ def headline(answer, max_sentences=3, max_chars=420):
     return out[:max_chars]
 
 
+# MMS-TTS Hausa was trained on text written with the hooked letters (ɓ ɗ ƙ); its vocabulary has no capitals or
+# digits. Our answers are typed with plain b/d/k, so common words are restored to standard spelling before
+# synthesis. Only unambiguous words are listed (e.g. not "kasa", which can be ƙasa or kasa).
+# NATIVE-SPEAKER REVIEW WELCOME: add or correct words here.
+HOOKED = {
+    "dari": "ɗari", "daya": "ɗaya", "hudu": "huɗu", "digo": "ɗigo", "kudi": "kuɗi", "kudin": "kuɗin", "kudade": "kuɗaɗe", "kudaden": "kuɗaɗen",
+    "karamar": "ƙaramar", "kananan": "ƙananan", "karshe": "ƙarshe", "karin": "ƙarin", "kari": "ƙari",
+    "karu": "ƙaru", "karuwa": "ƙaruwa", "kididdiga": "ƙididdiga", "kididdigar": "ƙididdigar",
+    "karbi": "karɓi", "karba": "karɓa", "karbar": "karɓar", "kadan": "kaɗan", "wadannan": "waɗannan",
+    "wadanne": "waɗanne", "dalibai": "ɗalibai", "kauye": "ƙauye", "kauyuka": "ƙauyuka", "kungiya": "ƙungiya",
+    "kungiyoyi": "ƙungiyoyi", "bunkasa": "bunƙasa", "akalla": "aƙalla", "dauki": "ɗauki", "kasashe": "ƙasashe",
+}
+UNITS = "tiriliyan|biliyan|miliyan|dubu"
+NUM = r"[\d,]*\d(?:\.\d+)?"
+
+
+def _money(num, unit, naira=True):
+    return naira_words(num, unit) if naira else naira_words(num, unit)[len("Naira "):]
+
+
 def to_speech(answer):
     t = headline(answer)
-    t = re.sub(r"[*_`#•📄🎙️👍👎🙏]", " ", t)
+    t = re.sub(r"[*_`#•📄🎙️👍👎🙏🔊]", " ", t)
     t = re.sub(r"\((personnel|overhead|capital|debt service)\)", "", t, flags=re.I)
     t = t.replace("—", ",").replace(" - ", ", ").replace(":", ",")
-    # money: ₦124.41 biliyan / ₦500 miliyan / ₦12,345
-    t = re.sub(r"₦\s?([\d,]+(?:\.\d+)?)\s*(tiriliyan|biliyan|miliyan|dubu)\b", lambda m: naira_words(m.group(1), m.group(2)), t)
-    t = re.sub(r"₦\s?([\d,]+(?:\.\d+)?)", lambda m: "Naira " + decimal_words(m.group(1)), t)
-    # percentages
-    t = re.sub(r"kashi ([\d.]+) cikin 100", lambda m: f"kashi {decimal_words(m.group(1))} cikin dari", t)
-    t = re.sub(r"([\d.]+)\s?%", lambda m: f"kashi {decimal_words(m.group(1))} cikin dari", t)
-    # Jan-Sat / Q4 style abbreviations
-    t = t.replace("Jan-Sat", "Janairu zuwa Satumba").replace("Janairu-Yuni", "Janairu zuwa Yuni")
-    t = t.replace("Janairu-Satumba", "Janairu zuwa Satumba")
+    t = re.sub(r"\b(\d+(?:\.\d+)?)\s?bn\b", r"\1 biliyan", t)
+    t = re.sub(r"\b(\d+(?:\.\d+)?)\s?m\b", r"\1 miliyan", t)
+    # money, in every order N-ATLaS writes it:
+    #   ₦8.75 biliyan | N8.75 biliyan | Naira 8.75 biliyan | Naira biliyan 8.75 | biliyan 8.75 | 8.75 biliyan
+    cur = r"(?:₦|\bN(?=\d)|\bNaira\s+)"
+    t = re.sub(rf"{cur}\s?({NUM})\s*({UNITS})\b", lambda m: _money(m.group(1), m.group(2)), t, flags=re.I)
+    t = re.sub(rf"\bNaira\s+({UNITS})\s+({NUM})", lambda m: _money(m.group(2), m.group(1).lower()), t, flags=re.I)
+    t = re.sub(rf"\b({UNITS})\s+({NUM})", lambda m: _money(m.group(2), m.group(1).lower(), naira=False), t, flags=re.I)
+    t = re.sub(rf"(?<![\d.])({NUM})\s*({UNITS})\b", lambda m: _money(m.group(1), m.group(2).lower(), naira=False), t, flags=re.I)
+    t = re.sub(rf"{cur}\s?({NUM})", lambda m: "Naira " + decimal_words(m.group(1)), t)
+    # percentages: "kashi 49.4 cikin 100", "kashi 49.4%", "49.4%"
+    t = re.sub(r"kashi\s+([\d.]+)\s*(?:%|cikin\s+100)", lambda m: f"kashi {decimal_words(m.group(1))} cikin ɗari", t)
+    t = re.sub(r"([\d.]+)\s?%", lambda m: f"kashi {decimal_words(m.group(1))} cikin ɗari", t)
+    # month ranges
+    for a, b in (("Jan-Sat", "Janairu zuwa Satumba"), ("Janairu-Yuni", "Janairu zuwa Yuni"),
+                 ("Janairu-Satumba", "Janairu zuwa Satumba"), ("Oktoba-Disamba", "Oktoba zuwa Disamba")):
+        t = t.replace(a, b)
     # remaining numbers (years, counts)
-    t = re.sub(r"\d[\d,]*(?:\.\d+)?", lambda m: decimal_words(m.group(0)), t)
+    t = re.sub(r"\d(?:[\d,]*\d)?(?:\.\d+)?", lambda m: decimal_words(m.group(0)), t)
     t = re.sub(r"\s*\(([^)]*)\)", r", \1,", t)          # brackets -> pauses
     t = re.sub(r"\s*,\s*(,\s*)+", ", ", t)
     t = re.sub(r"\s+([,.])", r"\1", t)
-    return re.sub(r"\s+", " ", t).strip(" ,.") + "."
+    t = re.sub(r"\s+", " ", t).strip(" ,.") + "."
+    # lowercase + standard Hausa spelling (the voice model's alphabet)
+    t = t.lower().replace("’", "'").replace("‘", "'")
+    return re.sub(r"[a-zɓɗƙ']+", lambda m: HOOKED.get(m.group(0), m.group(0)), t)

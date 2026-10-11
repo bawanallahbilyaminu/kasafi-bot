@@ -47,12 +47,15 @@ class HausaTTS:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model.to(self.device).eval()
         self.sr = self.model.config.sampling_rate
+        # slightly slower than the default reads figures more clearly (TTS_RATE: 1.0 = model default, lower = slower)
+        self.model.config.speaking_rate = config.TTS_RATE
         self._lock = threading.Lock()
         log.info("Hausa TTS loaded (%s) in %.1fs", config.TTS_MODEL, time.time() - t0)
 
     def _synth(self, text):
         import torch
         inputs = self.tok(text, return_tensors="pt").to(self.device)
+        torch.manual_seed(0)                      # VITS samples durations; a fixed seed = the same voice every time
         with torch.no_grad():
             wav = self.model(**inputs).waveform[0].float().cpu().numpy()
         return wav
@@ -60,16 +63,21 @@ class HausaTTS:
     def speak(self, text: str) -> bytes:
         """Hausa text (already verbalised) -> OGG/Opus voice note."""
         import re
-        chunks, cur = [], ""
-        for sent in re.split(r"(?<=[.,;])\s+", text):   # short chunks synthesise more reliably
-            if len(cur) + len(sent) > 180 and cur:
-                chunks.append(cur); cur = ""
-            cur = (cur + " " + sent).strip()
-        if cur:
-            chunks.append(cur)
-        gap = np.zeros(int(self.sr * 0.25), dtype=np.float32)
+        # The model's alphabet has no punctuation, so pauses are made here: one phrase per comma / full stop.
+        phrases = [p.strip() for p in re.split(r"(?<=[.,;!?])\s+", text) if p.strip()]
+        merged = []
+        for ph in phrases:                         # very short phrases sound clipped: join them to the next one
+            if merged and len(merged[-1]) < 25 and not merged[-1].endswith((".", "?", "!")):
+                merged[-1] = f"{merged[-1]} {ph}"
+            else:
+                merged.append(ph)
+        pause = {"short": np.zeros(int(self.sr * 0.18), dtype=np.float32),
+                 "long": np.zeros(int(self.sr * 0.4), dtype=np.float32)}
         with self._lock:
             parts = []
-            for c in chunks:
-                parts += [self._synth(c), gap]
+            for ph in merged:
+                words = ph.rstrip(".,;!?")
+                if not words:
+                    continue
+                parts += [self._synth(words), pause["long" if ph.endswith((".", "?", "!")) else "short"]]
         return to_ogg_opus(np.concatenate(parts), self.sr)
