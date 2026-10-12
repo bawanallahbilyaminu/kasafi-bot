@@ -1,7 +1,7 @@
 """Export the interaction log as NAIC 'real-world validation' evidence.
 
 Writes to evidence/:
-  interactions.csv      one row per user interaction (user ids are salted hashes)
+  interactions.csv      one row per user interaction (user ids are salted hashes; no names or organisation)
   summary.md            counts, voice share, latency, feedback, N-ATLaS answer rate, organisations
 Also writes private/users_private.csv (names, organisation and activity per registered user) to a SEPARATE
 folder, so it is never uploaded with the evidence by accident. private/ is gitignored.
@@ -52,7 +52,9 @@ def main():
                 w.writeheader()
                 w.writerows(urows)
     with open(OUT / "interactions.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=COLS)
+        # organisation stays out of the shared CSV (small organisations could identify a person); it is only
+        # used for the aggregate table in summary.md
+        w = csv.DictWriter(f, fieldnames=[c for c in COLS if c != "organization"], extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
 
